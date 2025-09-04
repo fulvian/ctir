@@ -16,7 +16,8 @@
     "lint": "eslint src --ext .ts",
     "setup": "bash local-development/scripts/setup.sh",
     "setup:models": "bash local-development/scripts/setup-models.sh",
-    "db:setup": "node dist/scripts/setup-database.js"
+    "db:setup": "node dist/scripts/setup-database.js",
+    "submodules:install": "bash local-development/scripts/install-submodules.sh"
   },
   "dependencies": {
     "@types/node": "^20.0.0",
@@ -38,4 +39,3 @@
     "vitest": "^0.34.0"
   }
 }
-
