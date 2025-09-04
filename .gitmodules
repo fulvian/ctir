@@ -1,0 +1,9 @@
+[submodule "submodules/cc-sessions"]
+	path = submodules/cc-sessions
+	url = https://github.com/GWUDCAP/cc-sessions.git
+[submodule "submodules/claude-code-router"]
+	path = submodules/claude-code-router
+	url = https://github.com/musistudio/claude-code-router.git
+[submodule "submodules/local-llm-mcp"]
+	path = submodules/local-llm-mcp
+	url = https://github.com/21st-dev/magic-mcp
