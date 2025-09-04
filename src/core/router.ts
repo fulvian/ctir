@@ -3,6 +3,17 @@ import { TaskCategory, type CTIRTask } from "@/models/task";
 import type { RoutingDecision, TokenBudget } from "@/models/routing";
 
 export class RoutingEngine {
+  private mcpAvailable = true;
+  private ccrAvailable = true;
+
+  setMcpAvailability(available: boolean) {
+    this.mcpAvailable = available;
+  }
+
+  setCcrAvailability(available: boolean) {
+    this.ccrAvailable = available;
+  }
+
   private normalizeBudget(session: CTIRSession): TokenBudget {
     const remaining = 1 - Math.min(1, session.tokenBudget.used / session.tokenBudget.limit);
     return { remaining };
@@ -24,7 +35,8 @@ export class RoutingEngine {
 
     if (
       complexity < 0.3 &&
-      [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category)
+      [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category) &&
+      this.ccrAvailable
     ) {
       return {
         strategy: "ccr_local",
@@ -34,15 +46,44 @@ export class RoutingEngine {
       };
     }
 
+    // If CCR would have been preferred but is unavailable, try MCP if suitable
+    if (
+      complexity < 0.3 &&
+      [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category) &&
+      !this.ccrAvailable &&
+      this.mcpAvailable
+    ) {
+      return {
+        strategy: "mcp_delegate",
+        model: process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b",
+        confidence: 0.6,
+        reasoning: "CCR unavailable; delegating to MCP as fallback",
+      };
+    }
+
     if (
       complexity < 0.6 &&
-      [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category)
+      [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category) &&
+      this.mcpAvailable
     ) {
       return {
         strategy: "mcp_delegate",
         model: process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b",
         confidence: 0.65,
         reasoning: "Medium complexity specialized task suited for MCP delegation",
+      };
+    }
+
+    // If MCP would have been preferred but is unavailable, fall back safely
+    if (
+      complexity < 0.6 &&
+      [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category) &&
+      !this.mcpAvailable
+    ) {
+      return {
+        strategy: "claude_direct",
+        confidence: 0.6,
+        reasoning: "MCP unavailable; falling back to Claude Code",
       };
     }
 
