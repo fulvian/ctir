@@ -275,6 +275,35 @@ Una volta attivo, il client MCP elencherà gli strumenti:
 - I moduli `src/integrations/ccr.ts` e `src/integrations/cc-sessions.ts` sono attualmente stub.
 - Per instradare task reali attraverso CCR o cc-sessions è necessario completare le integrazioni.
 
+### 4.4 Controlli iniziali e fallback
+
+All’avvio CTIR esegue controlli e imposta il routing di conseguenza:
+- Node.js >= 18 (warning se inferiore)
+- Database SQLite raggiungibile (query rapida su `DB_PATH`)
+- Ollama raggiungibile (`ollama.list()` con timeout)
+- MCP `ctir-ollama-mcp` disponibile (health-check stdio), con ri-verifica ogni 60s
+- CCR presente (submodule/`package.json`), cc-sessions presente (submodule/`package.json` o `pyproject.toml`)
+
+Impatto sul routing:
+- Se MCP è indisponibile, CTIR evita `mcp_delegate` e degrada su `claude_direct`.
+- Se CCR è indisponibile, CTIR evita `ccr_local` e prova MCP (se adatto), altrimenti `claude_direct`.
+
+I cambi stato sono loggati con INFO/WARN per facilitarne la diagnosi.
+
+### 4.5 Prova rapida in Claude Code
+
+1. Avvia CTIR e MCP come descritto in 4.1
+2. In Claude Code/Claude Desktop, aggiungi un server MCP locale:
+   - Command: `node`
+   - Args: `[/percorso/assoluto/ctir/mcp/ctir-ollama-mcp/dist/index.js]`
+   - Env (se non già in `.env`):
+     - `OLLAMA_HOST=http://localhost:11434`
+     - `DEFAULT_DEBUG_MODEL=qwen2.5-coder:7b`
+     - `DEFAULT_GENERATION_MODEL=qwen2.5-coder:7b`
+     - `DEFAULT_FORMATTING_MODEL=qwen2.5-coder:7b`
+3. Verifica che compaiano gli strumenti MCP (`analyze_error`, `generate_unit_tests`, `format_code`).
+4. Prova `analyze_error` incollando uno snippet e un errore; attesi: causa, fix minimo, test di verifica.
+
 ---
 
 ## 5) Manutenzione
