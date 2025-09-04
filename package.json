@@ -22,7 +22,8 @@
     "mcp:install": "npm --prefix mcp/ctir-ollama-mcp install",
     "mcp:build": "npm --prefix mcp/ctir-ollama-mcp run build",
     "mcp:dev": "npm --prefix mcp/ctir-ollama-mcp run dev",
-    "mcp:start": "npm --prefix mcp/ctir-ollama-mcp start"
+    "mcp:start": "npm --prefix mcp/ctir-ollama-mcp start",
+    "mcp:health": "node mcp/ctir-ollama-mcp/dist/index.js --health-check"
   },
   "overrides": {},
   "dependencies": {

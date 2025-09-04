@@ -23,6 +23,25 @@ async function askOllama(model: string, prompt: string): Promise<string> {
   return String(content);
 }
 
+async function runHealthCheck(): Promise<number> {
+  try {
+    // Quick connectivity check to Ollama
+    // Any call is fine; list models is light-weight
+    await Promise.race([
+      (async () => {
+        await ollama.list();
+      })(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000)),
+    ]);
+    // If reached here, Ollama reachable
+    return 0;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("ctir-ollama-mcp health-check failed:", err);
+    return 2;
+  }
+}
+
 const AnalyzeErrorShape = {
   code: z.string(),
   error: z.string(),
@@ -98,4 +117,9 @@ ${code}`;
   }
 );
 
-await mcp.connect(new StdioServerTransport());
+if (process.argv.includes("--health-check")) {
+  const code = await runHealthCheck();
+  process.exit(code);
+} else {
+  await mcp.connect(new StdioServerTransport());
+}

@@ -11,3 +11,4 @@ Esecuzione rapida:
 - Install: `npm --prefix mcp/ctir-ollama-mcp install`
 - Dev: `npm --prefix mcp/ctir-ollama-mcp run dev`
 - Build: `npm --prefix mcp/ctir-ollama-mcp run build`
+- Health: `npm run mcp:health`
