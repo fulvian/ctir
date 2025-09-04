@@ -273,9 +273,7 @@ sleep 5
 
 # Pull required models
 echo "Downloading models (this may take a while)..."
-ollama pull codellama:7b-instruct &
-ollama pull mistral:7b-instruct-v0.2 &
-ollama pull starcoder:7b &
+ollama pull qwen2.5-coder:7b &
 
 wait
 
@@ -314,9 +312,9 @@ DB_PATH=./local-development/ctir.db
 
 # Ollama Configuration  
 OLLAMA_HOST=http://localhost:11434
-DEFAULT_DEBUG_MODEL=codellama:7b-instruct
-DEFAULT_GENERATION_MODEL=mistral:7b-instruct-v0.2
-DEFAULT_FORMATTING_MODEL=starcoder:7b
+DEFAULT_DEBUG_MODEL=qwen2.5-coder:7b
+DEFAULT_GENERATION_MODEL=qwen2.5-coder:7b
+DEFAULT_FORMATTING_MODEL=qwen2.5-coder:7b
 
 # Claude Code Integration
 CLAUDE_API_KEY=your_api_key_here
@@ -421,4 +419,3 @@ Questa struttura ti permette di:
 - **Ottimizzare** per il tuo MacBook Pro 16GB
 
 Vuoi che procediamo con la creazione di alcuni di questi file di configurazione?
-

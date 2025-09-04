@@ -28,7 +28,7 @@ export class RoutingEngine {
     ) {
       return {
         strategy: "ccr_local",
-        model: process.env.DEFAULT_DEBUG_MODEL || "codellama:7b-instruct",
+        model: process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b",
         confidence: 0.7,
         reasoning: "Simple, repetitive task suited for local CCR model",
       };
@@ -40,7 +40,7 @@ export class RoutingEngine {
     ) {
       return {
         strategy: "mcp_delegate",
-        model: process.env.DEFAULT_GENERATION_MODEL || "mistral:7b-instruct-v0.2",
+        model: process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b",
         confidence: 0.65,
         reasoning: "Medium complexity specialized task suited for MCP delegation",
       };
@@ -53,4 +53,3 @@ export class RoutingEngine {
     };
   }
 }
-

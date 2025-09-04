@@ -9,9 +9,9 @@
     },
     "models": {
       "localModelsPath": "~/.ollama/models",
-      "defaultDebugModel": "codellama:7b-instruct",
-      "defaultGenerationModel": "mistral:7b-instruct-v0.2",
-      "defaultFormattingModel": "starcoder:7b"
+      "defaultDebugModel": "qwen2.5-coder:7b",
+      "defaultGenerationModel": "qwen2.5-coder:7b",
+      "defaultFormattingModel": "qwen2.5-coder:7b"
     },
     "performance": {
       "maxLatency": 2000,

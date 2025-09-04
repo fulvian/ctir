@@ -152,19 +152,19 @@ const ROUTING_RULES = {
 ```typescript
 const LOCAL_MODELS = {
   'code-debug': {
-    model: 'codellama:7b-instruct',
+    model: 'qwen2.5-coder:7b',
     specialties: ['debugging', 'error_analysis', 'syntax_fixes'],
     maxTokens: 4096,
     temperature: 0.1
   },
   'code-generation': {
-    model: 'mistral:7b-instruct-v0.2', 
+    model: 'qwen2.5-coder:7b', 
     specialties: ['unit_tests', 'boilerplate', 'documentation'],
     maxTokens: 8192,
     temperature: 0.3
   },
   'code-formatting': {
-    model: 'starcoder:7b',
+    model: 'qwen2.5-coder:7b',
     specialties: ['formatting', 'linting', 'style_fixes'],
     maxTokens: 2048,
     temperature: 0.0
@@ -256,7 +256,7 @@ class CodeDebugMCPServer implements MCPServer {
   async analyzeError(code: string, error: string): Promise<Analysis> {
     return this.localModel.analyze({
       prompt: `Analyze this error: ${error}\nIn code: ${code}`,
-      model: 'codellama:7b-instruct'
+      model: 'qwen2.5-coder:7b'
     });
   }
 }
@@ -378,9 +378,7 @@ if ! command -v ollama &> /dev/null; then
 fi
 
 # Pull required models
-ollama pull codellama:7b-instruct
-ollama pull mistral:7b-instruct-v0.2  
-ollama pull starcoder:7b
+ollama pull qwen2.5-coder:7b
 
 # Start CTIR MCP servers
 node dist/mcp-servers/code-debug-server.js &
@@ -496,9 +494,9 @@ describe('CTIR Integration Tests', () => {
     },
     "models": {
       "localModelsPath": "/Users/[username]/.ollama/models",
-      "defaultDebugModel": "codellama:7b-instruct",
-      "defaultGenerationModel": "mistral:7b-instruct-v0.2",
-      "defaultFormattingModel": "starcoder:7b"
+      "defaultDebugModel": "qwen2.5-coder:7b",
+      "defaultGenerationModel": "qwen2.5-coder:7b",
+      "defaultFormattingModel": "qwen2.5-coder:7b"
     },
     "performance": {
       "maxLatency": 2000,
@@ -557,9 +555,7 @@ if ! command -v ollama &> /dev/null; then
 fi
 
 # Download required models (in background to save time)
-ollama pull codellama:7b-instruct &
-ollama pull mistral:7b-instruct-v0.2 &  
-ollama pull starcoder:7b &
+ollama pull qwen2.5-coder:7b &
 
 # Build CTIR
 echo "Building CTIR..."
@@ -646,4 +642,3 @@ interface CTIRMetrics {
 - [ ] Plugin ecosystem
 
 Questo piano fornisce a Claude Code una roadmap completa e dettagliata per implementare il sistema CTIR, integrando efficacemente cc-sessions, CCR e MCP server locali per ottimizzare l'utilizzo dei token di Claude Code Pro.
-

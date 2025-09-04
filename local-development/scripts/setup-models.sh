@@ -14,9 +14,6 @@ if ! nc -z localhost 11434 2>/dev/null; then
 fi
 
 echo "⬇️ Pulling models (may take time)..."
-echo "   > ollama pull codellama:7b-instruct"
-echo "   > ollama pull mistral:7b-instruct-v0.2"
-echo "   > ollama pull starcoder:7b"
+echo "   > ollama pull qwen2.5-coder:7b"
 
 echo "✅ Models setup step completed (downloads may still be running)."
-

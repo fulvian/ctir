@@ -53,7 +53,7 @@ mcp.tool(
   "Analizza un errore e suggerisce una fix minimal con passi chiari",
   AnalyzeErrorShape,
   async ({ code, error, model }) => {
-    const chosen = model || process.env.DEFAULT_DEBUG_MODEL || "codellama:7b-instruct";
+    const chosen = model || process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b";
     const prompt = `Analizza il seguente errore e fornisci:
 1) Causa probabile
 2) Fix minima proposta (codice diff o snippet)
@@ -82,7 +82,7 @@ mcp.tool(
   "Genera test unitari per il codice fornito con framework indicato",
   GenerateTestsShape,
   async ({ language, code, framework, requirements, model }) => {
-    const chosen = model || process.env.DEFAULT_GENERATION_MODEL || "mistral:7b-instruct-v0.2";
+    const chosen = model || process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b";
     const fw = framework || "jest";
     const prompt = `Scrivi test unitari in ${fw} per il seguente codice ${language}. Mantieni i test minimi ma utili, includi casi edge. Restituisci solo il codice dei test.
 
@@ -107,7 +107,7 @@ mcp.tool(
   "Formatta il codice secondo lo stile indicato (o default del linguaggio)",
   FormatCodeShape,
   async ({ language, code, style, model }) => {
-    const chosen = model || process.env.DEFAULT_FORMATTING_MODEL || "starcoder:7b";
+    const chosen = model || process.env.DEFAULT_FORMATTING_MODEL || "qwen2.5-coder:7b";
     const prompt = `Formatta il seguente codice ${language} secondo lo stile ${style || "standard"}. Restituisci solo il codice formattato.
 
 Codice:

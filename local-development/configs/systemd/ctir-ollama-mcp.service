@@ -1,0 +1,20 @@
+[Unit]
+Description=CTIR Ollama MCP Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ctir
+EnvironmentFile=/etc/ctir/ctir.env
+ExecStart=/usr/bin/node /opt/ctir/mcp/ctir-ollama-mcp/dist/index.js
+Restart=always
+RestartSec=5
+User=ctir
+Group=ctir
+NoNewPrivileges=true
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+

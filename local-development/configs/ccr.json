@@ -1,5 +1,4 @@
 {
   "autoSwitch": true,
-  "defaultLocalModel": "codellama:7b-instruct"
+  "defaultLocalModel": "qwen2.5-coder:7b"
 }
-

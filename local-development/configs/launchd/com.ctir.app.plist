@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ctir.app</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE_PATH__</string>
+    <string>__WORKDIR__/dist/index.js</string>
+  </array>
+  <key>WorkingDirectory</key><string>__WORKDIR__</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key><string>production</string>
+    <key>DB_PATH</key><string>__WORKDIR__/local-development/ctir.db</string>
+    <key>OLLAMA_HOST</key><string>http://localhost:11434</string>
+  </dict>
+  <key>KeepAlive</key><true/>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>__WORKDIR__/ctir.out.log</string>
+  <key>StandardErrorPath</key><string>__WORKDIR__/ctir.err.log</string>
+</dict>
+</plist>
+
