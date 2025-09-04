@@ -6,4 +6,4 @@
 	url = https://github.com/musistudio/claude-code-router.git
 [submodule "submodules/local-llm-mcp"]
 	path = submodules/local-llm-mcp
-	url = https://github.com/21st-dev/magic-mcp
+	url = https://github.com/richardbaxterseo/local-llm-mcp.git
