@@ -34,7 +34,7 @@
           "code-debug-server",
           "test-generation-server",
           "formatting-server",
-          "local-llm-mcp"
+          "ctir-ollama-mcp"
         ]
       }
     },

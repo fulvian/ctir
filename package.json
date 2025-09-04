@@ -20,6 +20,7 @@
     "submodules:install": "bash local-development/scripts/install-submodules.sh",
     "submodules:update": "bash local-development/scripts/update-submodules.sh"
   },
+  "overrides": {},
   "dependencies": {
     "@types/node": "^20.0.0",
     "dotenv": "^16.3.1",
