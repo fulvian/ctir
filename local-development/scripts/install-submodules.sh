@@ -53,3 +53,7 @@ fi
 
 echo "✅ Submodules installation complete."
 
+echo "📦 Installing CTIR MCP (ctir-ollama-mcp)..."
+npm --prefix mcp/ctir-ollama-mcp install || true
+npm --prefix mcp/ctir-ollama-mcp run build || true
+
