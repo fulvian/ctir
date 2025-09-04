@@ -1,0 +1,5 @@
+{
+  "autoSwitch": true,
+  "defaultLocalModel": "codellama:7b-instruct"
+}
+

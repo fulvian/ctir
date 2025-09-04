@@ -1,0 +1,51 @@
+{
+  "ctir": {
+    "version": "1.0.0",
+    "mode": "development",
+    "tokenBudget": {
+      "conservativeThreshold": 0.75,
+      "aggressiveThreshold": 0.9,
+      "criticalThreshold": 0.95
+    },
+    "models": {
+      "localModelsPath": "~/.ollama/models",
+      "defaultDebugModel": "codellama:7b-instruct",
+      "defaultGenerationModel": "mistral:7b-instruct-v0.2",
+      "defaultFormattingModel": "starcoder:7b"
+    },
+    "performance": {
+      "maxLatency": 2000,
+      "maxMemoryUsage": "1GB",
+      "enableCaching": true,
+      "cacheSize": "256MB"
+    },
+    "integrations": {
+      "ccSessions": {
+        "enabled": true,
+        "enhancedTaskFiles": true
+      },
+      "ccr": {
+        "enabled": true,
+        "autoSwitch": true
+      },
+      "mcp": {
+        "enabled": true,
+        "servers": [
+          "code-debug-server",
+          "test-generation-server",
+          "formatting-server"
+        ]
+      }
+    },
+    "autoResume": {
+      "enabled": true,
+      "sessionDuration": "5h",
+      "preparationTime": "10m",
+      "notificationsEnabled": true,
+      "backupInterval": "30s",
+      "maxResumeAttempts": 3,
+      "resumePromptTemplate": "templates/auto-resume.md"
+    }
+  }
+}
+

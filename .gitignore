@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+coverage/
+
+# Python venv for MCP servers
+local-development/venv/
+
+# Local artifacts
+local-development/backups/
+local-development/session-data/
+local-development/auto-resume/
+
+# VS Code
+.vscode/
+
