@@ -23,5 +23,6 @@ export interface CTIRTask {
   description: string;
   category?: TaskCategory;
   complexity?: TaskComplexityScore;
+  estimatedTokens?: number;
 }
 

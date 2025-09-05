@@ -3,6 +3,7 @@ import type { RoutingDecision } from "@/models/routing";
 export interface TokenBudget {
   limit: number; // absolute tokens per window
   used: number;
+  remaining?: number;
 }
 
 export interface ModelMetrics {
@@ -14,6 +15,7 @@ export interface ModelMetrics {
 
 export interface ContextWindowInfo {
   size: number;
+  used?: number;
 }
 
 export interface CTIRSession {
@@ -23,5 +25,7 @@ export interface CTIRSession {
   modelPerformanceMetrics: ModelMetrics[];
   contextWindow: ContextWindowInfo;
   userPreferences?: Record<string, unknown>;
+  startTime?: Date;
+  lastActivity?: Date;
 }
 

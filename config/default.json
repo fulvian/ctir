@@ -36,6 +36,10 @@
           "formatting-server",
           "ctir-ollama-mcp"
         ]
+      },
+      "gemini": {
+        "enabled": true,
+        "primary": true
       }
     },
     "autoResume": {

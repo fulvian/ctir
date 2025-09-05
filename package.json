@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Claude Task Intelligence Router",
   "main": "dist/index.js",
-  "type": "module",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -11,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc && tsc-alias",
     "start": "node dist/index.js",
+    "start:session": "bash scripts/start-ctir-session.sh",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src --ext .ts",
@@ -23,23 +23,34 @@
     "mcp:build": "npm --prefix mcp/ctir-ollama-mcp run build",
     "mcp:dev": "npm --prefix mcp/ctir-ollama-mcp run dev",
     "mcp:start": "npm --prefix mcp/ctir-ollama-mcp start",
-    "mcp:health": "node mcp/ctir-ollama-mcp/dist/index.js --health-check"
+    "mcp:health": "npm run mcp:build && node mcp/ctir-ollama-mcp/dist/index.js --health-check",
+    "status": "node scripts/check-ctir-status.js",
+    "set-limit": "node scripts/set-limit-reached.js",
+    "simulate-reset": "node scripts/simulate-session-reset.js",
+    "e2e": "node scripts/e2e-runner.js"
   },
   "overrides": {},
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@types/express": "^4.17.0",
     "@types/node": "^20.0.0",
+    "@types/sqlite3": "^3.1.8",
+    "@types/ws": "^8.5.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.0",
-    "ollama": "^0.5.0",
+    "http-proxy-middleware": "^2.0.6",
+    "ollama": "^0.5.17",
     "sqlite3": "^5.1.6",
     "ws": "^8.14.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.1",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitest/coverage-v8": "^0.34.0",
     "eslint": "^8.50.0",
+    "fs-extra": "^11.1.1",
     "tsc-alias": "^1.8.8",
     "tsx": "^4.0.0",
     "typescript": "^5.2.0",

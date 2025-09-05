@@ -44,12 +44,7 @@ else
   echo "⚠️ submodules/claude-code-router not found"
 fi
 
-# local-llm-mcp
-if [ -d submodules/local-llm-mcp ]; then
-  install_with_pm submodules/local-llm-mcp local-llm-mcp
-else
-  echo "⚠️ submodules/local-llm-mcp not found"
-fi
+# Note: local-llm-mcp submodule has been replaced by internal ctir-ollama-mcp
 
 echo "✅ Submodules installation complete."
 

@@ -42,6 +42,70 @@ async function runHealthCheck(): Promise<number> {
   }
 }
 
+async function handleToolCall(tempFile: string): Promise<void> {
+  try {
+    const fs = await import("fs/promises");
+    const raw = await fs.readFile(tempFile, "utf-8");
+    const request = JSON.parse(raw);
+
+    const { tool, args } = request;
+
+    // Map tool names to handlers
+    const toolHandlers: Record<string, (args: any) => Promise<any>> = {
+      analyze_error: async (args: any) => {
+        const chosen = args.model || process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b";
+        const prompt = `Analizza il seguente errore e fornisci:
+1) Causa probabile
+2) Fix minima proposta (codice diff o snippet)
+3) Test rapido per validare
+
+Codice:
+${args.code}
+
+Errore:
+${args.error}`;
+        const output = await askOllama(chosen, prompt);
+        return { content: [{ type: "text", text: output }] };
+      },
+
+      generate_unit_tests: async (args: any) => {
+        const chosen = args.model || process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b";
+        const fw = args.framework || "jest";
+        const prompt = `Scrivi test unitari in ${fw} per il seguente codice. Mantieni i test minimi ma utili, includi casi edge.
+
+Codice sotto test:
+${args.code}
+
+Requisiti aggiuntivi: ${args.requirements || "nessuno"}`;
+        const output = await askOllama(chosen, prompt);
+        return { content: [{ type: "text", text: output }] };
+      },
+
+      format_code: async (args: any) => {
+        const chosen = args.model || process.env.DEFAULT_FORMATTING_MODEL || "qwen2.5-coder:7b";
+        const prompt = `Formatta il seguente codice ${args.language} secondo lo stile ${args.style || "standard"}. Restituisci solo il codice formattato.
+
+Codice:
+${args.code}`;
+        const output = await askOllama(chosen, prompt);
+        return { content: [{ type: "text", text: output }] };
+      }
+    };
+
+    const handler = toolHandlers[tool];
+    if (!handler) {
+      throw new Error(`Unknown tool: ${tool}`);
+    }
+
+    const result = await handler(args);
+    console.log(JSON.stringify(result));
+
+  } catch (error) {
+    console.error(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+    process.exit(1);
+  }
+}
+
 const AnalyzeErrorShape = {
   code: z.string(),
   error: z.string(),
@@ -120,6 +184,15 @@ ${code}`;
 if (process.argv.includes("--health-check")) {
   const code = await runHealthCheck();
   process.exit(code);
+} else if (process.argv.includes("--tool-call")) {
+  const toolCallIndex = process.argv.indexOf("--tool-call");
+  if (toolCallIndex + 1 < process.argv.length) {
+    const tempFile = process.argv[toolCallIndex + 1];
+    await handleToolCall(tempFile);
+  } else {
+    console.error("Missing tool call file argument");
+    process.exit(1);
+  }
 } else {
   await mcp.connect(new StdioServerTransport());
 }

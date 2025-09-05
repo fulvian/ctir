@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ctir-ollama-mcp": {
+      "command": "node",
+      "args": ["/Users/fulvioventura/Desktop/ctir/mcp/ctir-ollama-mcp/dist/index.js"],
+      "env": {
+        "OLLAMA_HOST": "http://localhost:11434",
+        "DEFAULT_DEBUG_MODEL": "qwen2.5-coder:7b",
+        "DEFAULT_GENERATION_MODEL": "qwen2.5-coder:7b",
+        "DEFAULT_FORMATTING_MODEL": "qwen2.5-coder:7b"
+      }
+    }
+  }
+}

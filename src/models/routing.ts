@@ -1,4 +1,4 @@
-export type RoutingStrategy = "claude_direct" | "ccr_local" | "mcp_delegate";
+export type RoutingStrategy = "claude_direct" | "ccr_local" | "mcp_delegate" | "gemini_pro" | "gemini_flash";
 
 export interface RoutingDecision {
   strategy: RoutingStrategy;

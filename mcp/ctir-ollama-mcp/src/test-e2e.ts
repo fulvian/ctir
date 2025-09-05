@@ -11,7 +11,9 @@ async function main() {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [serverPath],
-    env: { ...process.env },
+    env: Object.fromEntries(
+      Object.entries(process.env).filter(([_, v]) => v !== undefined)
+    ) as Record<string, string>,
   });
 
   const client = new Client({ name: "ctir-e2e-client", version: "0.1.0" });
