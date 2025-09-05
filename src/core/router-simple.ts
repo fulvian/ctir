@@ -16,12 +16,12 @@ export class SimpleRoutingEngine {
       };
     }
 
-    // Task medi → Gemini Flash (solo se non è un task complesso)
+    // Task medi → OpenRouter GPT-OSS-120B (rapid prototyping)
     if (complexity < 0.6 && estimatedTokens < 500 && complexity <= 0.4) {
       return {
-        strategy: "gemini_flash", 
+        strategy: "openrouter_prototyping", 
         confidence: 0.8,
-        reasoning: "Task medio → Gemini Flash",
+        reasoning: "Task medio → GPT-OSS-120B (rapid prototyping)",
       };
     }
 

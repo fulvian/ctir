@@ -29,15 +29,20 @@ export interface WorkState<TTask = unknown> {
 }
 
 export interface CTIRStatus {
-  status: "active" | "fallback_mode" | "session_expired";
+  status: "active" | "fallback_mode" | "session_expired" | "approaching_limit" | "reset_pending" | "resetting";
   fallbackMode: boolean;
   lastUpdate: string;
   mcpAvailable: boolean;
   ollamaAvailable: boolean;
+  openRouterAvailable?: boolean;
+  openRouterCreditAvailable?: boolean;
   geminiAvailable?: boolean;
   geminiCreditAvailable?: boolean;
   sessionStart: string;
   tokenLimitReached: boolean;
+  modernSessionManager?: boolean;
+  sessionState?: string;
+  claudeCodeActive?: boolean;
   recommendations: {
     useLocalModels: boolean;
     forceMCP: boolean;
@@ -335,6 +340,10 @@ Please continue from where we left off. The CTIR system has automatically restor
 
   async loadLastWorkState<T = unknown>(): Promise<WorkState<T> | null> {
     return this.persistence.loadLastWorkState<T>();
+  }
+
+  async enableFallbackMode(): Promise<void> {
+    await this.activateFallbackMode();
   }
 
   async resetFallbackMode(): Promise<void> {

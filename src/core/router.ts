@@ -1,13 +1,19 @@
 import type { CTIRSession } from "@/models/session";
 import { TaskCategory, type CTIRTask } from "@/models/task";
-import type { RoutingDecision, TokenBudget } from "@/models/routing";
+import type { RoutingDecision, TokenBudget, RoutingStrategy } from "@/models/routing";
+import { OpenRouterIntegration, type OpenRouterModel } from "@/integrations/openrouter";
 
 export class RoutingEngine {
   private mcpAvailable = true;
   private ccrAvailable = true;
   private localOnlyMode = false;
-  private geminiAvailable = false;
-  private geminiCreditAvailable = false;
+  private openRouterAvailable = false;
+  private openRouterCreditAvailable = false;
+  private openRouterIntegration: OpenRouterIntegration;
+
+  constructor() {
+    this.openRouterIntegration = new OpenRouterIntegration();
+  }
 
   setMcpAvailability(available: boolean) {
     this.mcpAvailable = available;
@@ -17,12 +23,12 @@ export class RoutingEngine {
     this.ccrAvailable = available;
   }
 
-  setGeminiAvailability(available: boolean) {
-    this.geminiAvailable = available;
+  setOpenRouterAvailability(available: boolean) {
+    this.openRouterAvailable = available;
   }
 
-  setGeminiCreditAvailable(available: boolean) {
-    this.geminiCreditAvailable = available;
+  setOpenRouterCreditAvailable(available: boolean) {
+    this.openRouterCreditAvailable = available;
   }
 
   enableLocalOnlyMode(): void {
@@ -43,170 +49,151 @@ export class RoutingEngine {
     const complexity = task.complexity?.totalScore ?? 0.5;
     const category = task.category ?? TaskCategory.DOCUMENTATION;
     const estimatedTokens = (task as any).estimatedTokens ?? 0;
+    const domainKnowledge = task.complexity?.domainKnowledge ?? 1;
 
-    // SOLUZIONE FINALE: Routing intelligente con Gemini e Ollama
-    // Task semplici → Ollama locale (veloce e gratuito)
-    if (complexity < 0.3 && estimatedTokens < 200) {
+    // === STRATEGIA SONNET 4 + OPENROUTER MULTI-MODEL ===
+
+    // PRIORITÀ 1: Sonnet 4 (Claude Code) - Modello principale per task complessi
+    if (!this.localOnlyMode && complexity > 0.6) {
       return {
-        strategy: "ccr_local",
+        strategy: "claude_direct",
         confidence: 0.9,
-        reasoning: "Task semplice → Ollama locale (veloce e gratuito)",
+        reasoning: "Task complesso → Sonnet 4 (modello principale)",
       };
     }
 
-    // Task medi → Gemini Flash (solo se non è un task complesso)
-    if (complexity < 0.6 && estimatedTokens < 500 && complexity <= 0.4) {
+    // PRIORITÀ 2: OpenRouter per task specializzati (anche se Sonnet 4 disponibile)
+    
+    // DeepCoder-14B per ottimizzazione performance e competitive programming
+    if (category === TaskCategory.PERFORMANCE_OPT && complexity < 0.3) {
       return {
-        strategy: "gemini_flash", 
-        confidence: 0.8,
-        reasoning: "Task medio → Gemini Flash",
+        strategy: "openrouter_efficiency",
+        model: "agentica-org/deepcoder-14b-preview",
+        confidence: 0.85,
+        reasoning: "Ottimizzazione performance → DeepCoder-14B (Efficiency Champion)",
       };
     }
 
-    // Task complessi → Claude Sonnet (totalScore >= 0.5)
-    return {
-      strategy: "claude_direct",
-      confidence: 0.85,
-      reasoning: "Task complesso → Claude Sonnet",
-    };
+    // Qwen2.5-Coder-32B per multi-language e manutenzione legacy
+    if ([TaskCategory.REFACTORING_MINOR, TaskCategory.CODE_FORMATTING].includes(category) && 
+        complexity < 0.4) {
+      return {
+        strategy: "openrouter_multilang",
+        model: "qwen/qwen2.5-coder-32b-instruct",
+        confidence: 0.8,
+        reasoning: "Multi-language/Legacy maintenance → Qwen2.5-Coder-32B",
+      };
+    }
 
-    // PRIORITÀ 5: Gemini se disponibile (DISABILITATO - usa logica sopra)
-    if (false && this.geminiAvailable && this.geminiCreditAvailable) {
-      const heavy = complexity > 0.6 || estimatedTokens > 500;
-      if (!this.localOnlyMode) {
-        if (heavy) {
+    // GPT-OSS-120B per prototipazione rapida e debugging
+    if ([TaskCategory.SIMPLE_DEBUG, TaskCategory.INTEGRATION_WORK].includes(category) && 
+        complexity >= 0.3 && complexity <= 0.6) {
+      return {
+        strategy: "openrouter_prototyping",
+        model: "openai/gpt-oss-120b",
+        confidence: 0.8,
+        reasoning: "Rapid prototyping/Debugging → GPT-OSS-120B",
+      };
+    }
+
+    // Gemini 2.5 Pro per ricerca e problemi complessi
+    if (domainKnowledge > 3 && complexity > 0.5) {
+      return {
+        strategy: "openrouter_research",
+        model: "google/gemini-2.5-pro-experimental",
+        confidence: 0.85,
+        reasoning: "Research/Complex problems → Gemini 2.5 Pro Experimental",
+      };
+    }
+
+    // Qwen3-Coder-480B per architettura e design
+    if (category === TaskCategory.ARCHITECTURE_DESIGN && complexity > 0.7) {
+      return {
+        strategy: "openrouter_technical",
+        model: "qwen/qwen3-coder-480b-a35b-instruct",
+        confidence: 0.9,
+        reasoning: "Architecture design → Qwen3-Coder-480B (Technical Lead)",
+      };
+    }
+
+    // PRIORITÀ 3: Fallback quando Sonnet 4 non disponibile (localOnlyMode)
+    if (this.localOnlyMode) {
+      // Se OpenRouter disponibile, usa il modello più adatto
+      if (this.openRouterAvailable && this.openRouterCreditAvailable) {
+        if (complexity > 0.7) {
           return {
-            strategy: "gemini_pro",
-            confidence: 0.82,
-            reasoning: "Complex/specific task → Gemini 1.5 Pro",
-          };
-        }
-        return {
-          strategy: "gemini_flash",
-          confidence: 0.8,
-          reasoning: "Light/iterative task → Gemini 1.5 Flash",
-        };
-      } else {
-        // Even in local-only mode (Claude exhausted), use Gemini first if credit is available
-        if (heavy) {
-          return {
-            strategy: "gemini_pro",
+            strategy: "openrouter_technical",
+            model: "qwen/qwen3-coder-480b-a35b-instruct",
             confidence: 0.8,
-            reasoning: "Claude exhausted; using Gemini 2.5 Pro as orchestrator for complex but bounded tasks",
+            reasoning: "Local-only mode: Complex task → Qwen3-Coder-480B",
           };
         }
+        
+        if (complexity > 0.5) {
+          return {
+            strategy: "openrouter_research",
+            model: "google/gemini-2.5-pro-experimental",
+            confidence: 0.75,
+            reasoning: "Local-only mode: Medium-complex task → Gemini 2.5 Pro",
+          };
+        }
+
         return {
-          strategy: "gemini_flash",
-          confidence: 0.78,
-          reasoning: "Claude exhausted; using Gemini 1.5 Flash for light tasks",
+          strategy: "openrouter_prototyping",
+          model: "openai/gpt-oss-120b",
+          confidence: 0.7,
+          reasoning: "Local-only mode: Simple task → GPT-OSS-120B",
         };
       }
-    }
 
-    // If local-only mode (e.g., 5h window exhausted), never use Claude
-    if (this.localOnlyMode) {
-      // Prefer CCR for simple categories when available, else MCP if available
-      if (
-        complexity < 0.35 &&
-        [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category) &&
-        this.ccrAvailable
-      ) {
+      // Fallback a CCR locale se disponibile
+      if (complexity < 0.35 && 
+          [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category) &&
+          this.ccrAvailable) {
         return {
           strategy: "ccr_local",
           model: process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b",
-          confidence: 0.85,
-          reasoning: "Local-only mode active; simple task routed to CCR",
+          confidence: 0.6,
+          reasoning: "Local-only mode: CCR fallback per task semplici",
         };
       }
 
+      // Ultimo fallback a MCP locale
       if (this.mcpAvailable) {
-        const model =
-          [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category)
-            ? process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b"
-            : process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b";
+        const model = [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category)
+          ? process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b"
+          : process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b";
         return {
           strategy: "mcp_delegate",
           model,
-          confidence: 0.8,
-          reasoning: "Local-only mode active; delega a MCP locale",
+          confidence: 0.5,
+          reasoning: "Local-only mode: MCP fallback",
         };
       }
 
-      // If neither CCR nor MCP are available, last resort is to declare Claude but with low confidence
+      // Fallback finale a Sonnet 4 con bassa confidenza
       return {
         strategy: "claude_direct",
         confidence: 0.2,
-        reasoning: "Local-only mode active but no local backends available; fallback to Claude",
+        reasoning: "Local-only mode: Nessun backend locale disponibile, fallback a Sonnet 4",
       };
     }
 
-    // Decision rules (MVP) - DISABILITATO - usa logica sopra
-    if (false && complexity > 0.7 || budget.remaining < 0.1) {
+    // PRIORITÀ 4: Default per task non classificati
+    if (complexity > 0.5) {
       return {
         strategy: "claude_direct",
-        confidence: 0.8,
-        reasoning: "High complexity or low token budget; keep on Claude Code",
-      };
-    }
-
-    if (
-      complexity < 0.3 &&
-      [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category) &&
-      this.ccrAvailable
-    ) {
-      return {
-        strategy: "ccr_local",
-        model: process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b",
         confidence: 0.7,
-        reasoning: "Simple, repetitive task suited for local CCR model",
+        reasoning: "Task non classificato complesso → Sonnet 4",
       };
     }
 
-    // If CCR would have been preferred but is unavailable, try MCP if suitable
-    if (
-      complexity < 0.3 &&
-      [TaskCategory.SIMPLE_DEBUG, TaskCategory.CODE_FORMATTING].includes(category) &&
-      !this.ccrAvailable &&
-      this.mcpAvailable
-    ) {
-      return {
-        strategy: "mcp_delegate",
-        model: process.env.DEFAULT_DEBUG_MODEL || "qwen2.5-coder:7b",
-        confidence: 0.6,
-        reasoning: "CCR unavailable; delegating to MCP as fallback",
-      };
-    }
-
-    if (false &&
-      complexity < 0.6 &&
-      [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category) &&
-      this.mcpAvailable
-    ) {
-      return {
-        strategy: "mcp_delegate",
-        model: process.env.DEFAULT_GENERATION_MODEL || "qwen2.5-coder:7b",
-        confidence: 0.65,
-        reasoning: "Medium complexity specialized task suited for MCP delegation",
-      };
-    }
-
-    // If MCP would have been preferred but is unavailable, fall back safely (DISABILITATO)
-    if (false &&
-      complexity < 0.6 &&
-      [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category) &&
-      !this.mcpAvailable
-    ) {
-      return {
-        strategy: "claude_direct",
-        confidence: 0.6,
-        reasoning: "MCP unavailable; falling back to Claude Code",
-      };
-    }
-
+    // Default per task semplici
     return {
-      strategy: "claude_direct",
-      confidence: 0.55,
-      reasoning: "Default safe choice: Claude Code",
+      strategy: "openrouter_prototyping",
+      model: "openai/gpt-oss-120b",
+      confidence: 0.6,
+      reasoning: "Task semplice → GPT-OSS-120B (default)",
     };
   }
 }

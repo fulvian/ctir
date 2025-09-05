@@ -1,201 +1,502 @@
-import fs from "fs";
+import { logger } from "@/utils/logger";
+import fs from "fs/promises";
 import path from "path";
-import { spawn } from "child_process";
-import type { CTIRTask } from "@/models/task";
+import os from "os";
 
-interface CCSession {
-  id: string;
-  tasks: CCSessionTask[];
-  context: Record<string, unknown>;
-  metadata: Record<string, unknown>;
+export interface CCSession {
+  sessionId: string;
+  projectRoot: string;
+  currentTask?: string;
+  contextManifest: ContextManifest;
+  taskHistory: TaskHistory[];
+  sessionState: SessionState;
 }
 
-interface CCSessionTask {
-  id: string;
+export interface ContextManifest {
+  projectOverview: string;
+  techStack: string[];
+  keyFiles: string[];
+  dependencies: string[];
+  recentChanges: string[];
+  contextRules: string[];
+}
+
+export interface TaskHistory {
+  taskId: string;
   description: string;
-  status: "pending" | "in_progress" | "completed" | "failed";
-  metadata: Record<string, unknown>;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  startTime: Date;
+  endTime?: Date;
+  modelUsed?: string;
+  qualityScore?: number;
+  contextFiles: string[];
 }
 
-// CC-Sessions integration layer
+export interface SessionState {
+  currentBranch: string;
+  modifiedFiles: string[];
+  lastCommit: string;
+  dependencies: string[];
+  testStatus: 'passing' | 'failing' | 'unknown';
+  activeAgents: string[];
+  contextWindow: {
+    size: number;
+    utilization: number;
+  };
+}
+
+export interface TaskFile {
+  taskId: string;
+  description: string;
+  successCriteria: string[];
+  servicesInvolved: string[];
+  routingMetadata: {
+    complexityScore: number;
+    estimatedTokens: number;
+    recommendedStrategy: string;
+    fallbackStrategy: string;
+    specializedModel: string;
+  };
+  contextFiles: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export class CCSessionsIntegration {
-  private ccSessionsPath: string;
-  private logger = { info: console.log, warn: console.warn, error: console.error };
+  private projectRoot: string;
+  private sessionsPath: string;
+  private tasksPath: string;
+  private contextPath: string;
 
-  constructor() {
-    this.ccSessionsPath = process.env.CC_SESSIONS_PATH || path.join(process.cwd(), "submodules", "cc-sessions");
-  }
-
-  async restoreSession(task: CTIRTask): Promise<void> {
-    try {
-      this.logger.info(`Attempting to restore session for task: ${task.description}`);
-
-      if (!await this.healthCheck()) {
-        throw new Error("CC-Sessions not available");
-      }
-
-      // Simulate session restoration
-      await this.simulateSessionRestore(task);
-
-      this.logger.info(`✅ Session restored for task: ${task.id}`);
-
-    } catch (error) {
-      this.logger.error(`❌ Session restore failed:`, error);
-      throw error;
-    }
-  }
-
-  private async simulateSessionRestore(task: CTIRTask): Promise<void> {
-    // This is a placeholder for actual CC-Sessions integration
-    // In reality, this would call CC-Sessions APIs or manipulate its data structures
-
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (Math.random() > 0.95) { // 5% failure rate
-          reject(new Error("Simulated session restore failure"));
-        } else {
-          this.logger.info(`Simulated session restore completed for task ${task.id}`);
-          resolve();
-        }
-      }, 300);
+  constructor(projectRoot?: string) {
+    this.projectRoot = projectRoot || process.cwd();
+    this.sessionsPath = path.join(this.projectRoot, '.claude', 'sessions');
+    this.tasksPath = path.join(this.sessionsPath, 'tasks');
+    this.contextPath = path.join(this.sessionsPath, 'context');
+    
+    this.initializeDirectories();
+    logger.info("CC-Sessions integration initialized", { 
+      projectRoot: this.projectRoot,
+      sessionsPath: this.sessionsPath 
     });
   }
 
+  /**
+   * Initialize cc-sessions directory structure
+   */
+  private async initializeDirectories(): Promise<void> {
+    try {
+      await fs.mkdir(this.sessionsPath, { recursive: true });
+      await fs.mkdir(this.tasksPath, { recursive: true });
+      await fs.mkdir(this.contextPath, { recursive: true });
+      
+      // Create initial session file if it doesn't exist
+      const sessionFile = path.join(this.sessionsPath, 'current-session.json');
+      try {
+        await fs.access(sessionFile);
+      } catch {
+        await this.createInitialSession();
+      }
+    } catch (error) {
+      logger.error("Failed to initialize cc-sessions directories", { error });
+    }
+  }
+
+  /**
+   * Create initial session file
+   */
+  private async createInitialSession(): Promise<void> {
+    const initialSession: CCSession = {
+      sessionId: this.generateSessionId(),
+      projectRoot: this.projectRoot,
+      contextManifest: await this.buildInitialContextManifest(),
+      taskHistory: [],
+      sessionState: await this.getProjectState()
+    };
+
+    const sessionFile = path.join(this.sessionsPath, 'current-session.json');
+    await fs.writeFile(sessionFile, JSON.stringify(initialSession, null, 2));
+    
+    logger.info("Created initial cc-sessions session", { 
+      sessionId: initialSession.sessionId 
+    });
+  }
+
+  /**
+   * Build initial context manifest from project
+   */
+  private async buildInitialContextManifest(): Promise<ContextManifest> {
+    try {
+      // Read package.json for tech stack
+      const packageJsonPath = path.join(this.projectRoot, 'package.json');
+      let techStack: string[] = [];
+      let dependencies: string[] = [];
+
+      try {
+        const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
+        techStack = Object.keys(packageJson.dependencies || {});
+        dependencies = Object.keys(packageJson.devDependencies || {});
+      } catch {
+        // No package.json found
+      }
+
+      // Read README for project overview
+      let projectOverview = "No README found";
+      try {
+        const readmePath = path.join(this.projectRoot, 'README.md');
+        projectOverview = await fs.readFile(readmePath, 'utf-8');
+      } catch {
+        // No README found
+      }
+
+      // Get key files
+      const keyFiles = await this.getKeyProjectFiles();
+
+      return {
+        projectOverview: projectOverview.substring(0, 500), // Limit size
+        techStack,
+        keyFiles,
+        dependencies,
+        recentChanges: [],
+        contextRules: this.getDefaultContextRules()
+      };
+    } catch (error) {
+      logger.error("Failed to build context manifest", { error });
+      return this.getDefaultContextManifest();
+    }
+  }
+
+  /**
+   * Get current project state
+   */
+  async getProjectState(): Promise<SessionState> {
+    try {
+      // Get current git branch
+      let currentBranch = 'main';
+      try {
+        const { execSync } = await import('child_process');
+        currentBranch = execSync('git branch --show-current', { 
+          encoding: 'utf-8',
+          cwd: this.projectRoot 
+        }).trim();
+      } catch {
+        // Git not available or not a git repo
+      }
+
+      // Get modified files
+      const modifiedFiles = await this.getModifiedFiles();
+
+      // Get last commit
+      let lastCommit = 'unknown';
+      try {
+        const { execSync } = await import('child_process');
+        lastCommit = execSync('git log -1 --oneline', { 
+          encoding: 'utf-8',
+          cwd: this.projectRoot 
+        }).trim();
+      } catch {
+        // Git not available
+      }
+
+      // Get test status
+      const testStatus = await this.getTestStatus();
+
+      return {
+        currentBranch,
+        modifiedFiles,
+        lastCommit,
+        dependencies: [], // Will be populated from package.json
+        testStatus,
+        activeAgents: [],
+        contextWindow: {
+          size: 160000, // Default context window
+          utilization: 0
+        }
+      };
+    } catch (error) {
+      logger.error("Failed to get project state", { error });
+      return this.getDefaultSessionState();
+    }
+  }
+
+  /**
+   * Create a new task file with cc-sessions format
+   */
+  async createTaskFile(
+    description: string,
+    routingMetadata: any,
+    contextFiles: string[] = []
+  ): Promise<TaskFile> {
+    
+    const taskId = this.generateTaskId();
+    const now = new Date();
+
+    const taskFile: TaskFile = {
+      taskId,
+      description,
+      successCriteria: this.extractSuccessCriteria(description),
+      servicesInvolved: this.extractServicesInvolved(description),
+      routingMetadata,
+      contextFiles,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    // Save task file
+    const taskFilePath = path.join(this.tasksPath, `${taskId}.json`);
+    await fs.writeFile(taskFilePath, JSON.stringify(taskFile, null, 2));
+
+    // Update current session
+    await this.updateCurrentTask(taskId);
+
+    logger.info("Created task file", { taskId, description });
+    return taskFile;
+  }
+
+  /**
+   * Save task context for memory preservation
+   */
+  async saveTaskContext(taskContext: any): Promise<void> {
+    try {
+      const contextFile = path.join(this.contextPath, `${taskContext.taskId}-context.json`);
+      await fs.writeFile(contextFile, JSON.stringify(taskContext, null, 2));
+      
+      // Update session with task history
+      await this.addToTaskHistory(taskContext);
+      
+      logger.debug("Saved task context", { taskId: taskContext.taskId });
+    } catch (error) {
+      logger.error("Failed to save task context", { error });
+    }
+  }
+
+  /**
+   * Save execution context for continuity
+   */
+  async saveExecutionContext(taskId: string, result: any): Promise<void> {
+    try {
+      const executionFile = path.join(this.contextPath, `${taskId}-execution.json`);
+      await fs.writeFile(executionFile, JSON.stringify(result, null, 2));
+      
+      // Update task history with execution result
+      await this.updateTaskHistory(taskId, result);
+      
+      logger.debug("Saved execution context", { taskId });
+    } catch (error) {
+      logger.error("Failed to save execution context", { error });
+    }
+  }
+
+  /**
+   * Get relevant files for incremental context
+   */
+  async getRelevantFiles(taskId: string): Promise<string[]> {
+    try {
+      const contextFile = path.join(this.contextPath, `${taskId}-context.json`);
+      const context = JSON.parse(await fs.readFile(contextFile, 'utf-8'));
+      return context.contextFiles || [];
+    } catch (error) {
+      logger.error("Failed to get relevant files", { taskId, error });
+      return [];
+    }
+  }
+
+  /**
+   * Update current task in session
+   */
+  private async updateCurrentTask(taskId: string): Promise<void> {
+    try {
+      const sessionFile = path.join(this.sessionsPath, 'current-session.json');
+      const session: CCSession = JSON.parse(await fs.readFile(sessionFile, 'utf-8'));
+      
+      session.currentTask = taskId;
+      session.sessionState = await this.getProjectState();
+      
+      await fs.writeFile(sessionFile, JSON.stringify(session, null, 2));
+    } catch (error) {
+      logger.error("Failed to update current task", { error });
+    }
+  }
+
+  /**
+   * Add task to history
+   */
+  private async addToTaskHistory(taskContext: any): Promise<void> {
+    try {
+      const sessionFile = path.join(this.sessionsPath, 'current-session.json');
+      const session: CCSession = JSON.parse(await fs.readFile(sessionFile, 'utf-8'));
+      
+      const taskHistory: TaskHistory = {
+        taskId: taskContext.taskId,
+        description: taskContext.description,
+        status: 'pending',
+        startTime: new Date(),
+        contextFiles: taskContext.contextFiles || []
+      };
+      
+      session.taskHistory.push(taskHistory);
+      await fs.writeFile(sessionFile, JSON.stringify(session, null, 2));
+    } catch (error) {
+      logger.error("Failed to add task to history", { error });
+    }
+  }
+
+  /**
+   * Update task history with execution result
+   */
+  private async updateTaskHistory(taskId: string, result: any): Promise<void> {
+    try {
+      const sessionFile = path.join(this.sessionsPath, 'current-session.json');
+      const session: CCSession = JSON.parse(await fs.readFile(sessionFile, 'utf-8'));
+      
+      const taskIndex = session.taskHistory.findIndex(t => t.taskId === taskId);
+      if (taskIndex !== -1) {
+        session.taskHistory[taskIndex].status = result.success ? 'completed' : 'failed';
+        session.taskHistory[taskIndex].endTime = new Date();
+        session.taskHistory[taskIndex].modelUsed = result.modelUsed;
+        session.taskHistory[taskIndex].qualityScore = result.qualityScore;
+        
+        await fs.writeFile(sessionFile, JSON.stringify(session, null, 2));
+      }
+    } catch (error) {
+      logger.error("Failed to update task history", { error });
+    }
+  }
+
+  /**
+   * Utility methods
+   */
+  private generateSessionId(): string {
+    return `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private generateTaskId(): string {
+    return `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  private async getKeyProjectFiles(): Promise<string[]> {
+    try {
+      const files = await fs.readdir(this.projectRoot);
+      return files.filter(file => 
+        file.endsWith('.json') || 
+        file.endsWith('.md') || 
+        file.endsWith('.ts') || 
+        file.endsWith('.js')
+      ).slice(0, 10); // Limit to 10 key files
+    } catch {
+      return [];
+    }
+  }
+
+  private async getModifiedFiles(): Promise<string[]> {
+    try {
+      const { execSync } = await import('child_process');
+      const output = execSync('git status --porcelain', { 
+        encoding: 'utf-8',
+        cwd: this.projectRoot 
+      });
+      
+      return output.split('\n')
+        .filter(line => line.trim())
+        .map(line => line.substring(3)) // Remove git status prefix
+        .slice(0, 20); // Limit to 20 files
+    } catch {
+      return [];
+    }
+  }
+
+  private async getTestStatus(): Promise<'passing' | 'failing' | 'unknown'> {
+    try {
+      const { execSync } = await import('child_process');
+      execSync('npm test', { 
+        encoding: 'utf-8',
+        cwd: this.projectRoot,
+        stdio: 'pipe'
+      });
+      return 'passing';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  private extractSuccessCriteria(description: string): string[] {
+    // Simple extraction of success criteria from description
+    const criteria: string[] = [];
+    
+    if (description.includes('test')) {
+      criteria.push('All tests pass');
+    }
+    if (description.includes('bug') || description.includes('fix')) {
+      criteria.push('Bug is resolved');
+    }
+    if (description.includes('feature')) {
+      criteria.push('Feature works as expected');
+    }
+    
+    return criteria.length > 0 ? criteria : ['Task completed successfully'];
+  }
+
+  private extractServicesInvolved(description: string): string[] {
+    // Extract service names from description
+    const services: string[] = [];
+    const serviceKeywords = ['api', 'service', 'database', 'auth', 'user', 'payment'];
+    
+    serviceKeywords.forEach(keyword => {
+      if (description.toLowerCase().includes(keyword)) {
+        services.push(`${keyword}-service`);
+      }
+    });
+    
+    return services;
+  }
+
+  private getDefaultContextRules(): string[] {
+    return [
+      'Follow existing code patterns',
+      'Maintain test coverage',
+      'Use TypeScript strict mode',
+      'Follow project naming conventions',
+      'Document complex logic'
+    ];
+  }
+
+  private getDefaultContextManifest(): ContextManifest {
+    return {
+      projectOverview: 'CTIR Project - Claude Task Intelligence Router',
+      techStack: ['TypeScript', 'Node.js'],
+      keyFiles: ['package.json', 'README.md'],
+      dependencies: [],
+      recentChanges: [],
+      contextRules: this.getDefaultContextRules()
+    };
+  }
+
+  private getDefaultSessionState(): SessionState {
+    return {
+      currentBranch: 'main',
+      modifiedFiles: [],
+      lastCommit: 'unknown',
+      dependencies: [],
+      testStatus: 'unknown',
+      activeAgents: [],
+      contextWindow: {
+        size: 160000,
+        utilization: 0
+      }
+    };
+  }
+
+  /**
+   * Health check per verificare se cc-sessions è disponibile
+   */
   async healthCheck(): Promise<boolean> {
     try {
-      if (!fs.existsSync(this.ccSessionsPath)) {
-        this.logger.warn("CC-Sessions path not found");
-        return false;
-      }
-
-      // Check for Python packaging (cc-sessions is Python-based)
-      const pyProj = path.join(this.ccSessionsPath, "pyproject.toml");
-      const setupPy = path.join(this.ccSessionsPath, "setup.py");
-      const pkgJson = path.join(this.ccSessionsPath, "package.json");
-
-      const hasPythonPackaging = fs.existsSync(pyProj) || fs.existsSync(setupPy);
-      const hasNodePackaging = fs.existsSync(pkgJson);
-
-      if (!hasPythonPackaging && !hasNodePackaging) {
-        this.logger.warn("No valid packaging found (neither Python nor Node)");
-        return false;
-      }
-
-      // Additional validation: check for expected CC-Sessions structure
-      const expectedDirs = ["cc_sessions"];
-      const hasExpectedStructure = expectedDirs.some(dir =>
-        fs.existsSync(path.join(this.ccSessionsPath, dir))
-      );
-
-      if (!hasExpectedStructure) {
-        this.logger.warn("CC-Sessions directory structure incomplete");
-        return false;
-      }
-
-      // Try to validate package metadata
-      if (hasPythonPackaging && fs.existsSync(pyProj)) {
-        const raw = fs.readFileSync(pyProj, "utf-8");
-        const isValidCCSessions = raw.includes("cc-sessions") || raw.includes("GWUDCAP");
-        if (!isValidCCSessions) {
-          this.logger.warn("pyproject.toml does not appear to be CC-Sessions");
-          return false;
-        }
-      }
-
-      if (hasNodePackaging && fs.existsSync(pkgJson)) {
-        const raw = fs.readFileSync(pkgJson, "utf-8");
-        const pkg = JSON.parse(raw);
-        const isValidCCSessions = pkg.name && (
-          pkg.name.includes("cc-sessions") ||
-          pkg.repository?.includes("GWUDCAP")
-        );
-        if (!isValidCCSessions) {
-          this.logger.warn("package.json does not appear to be CC-Sessions");
-          return false;
-        }
-      }
-
+      await fs.access(this.sessionsPath);
+      logger.debug(`cc-sessions health check passed: ${this.sessionsPath}`);
       return true;
-
     } catch (error) {
-      this.logger.error("CC-Sessions health check error:", error);
+      logger.warn(`cc-sessions health check failed: ${this.sessionsPath}`, { error: error instanceof Error ? error.message : String(error) });
       return false;
-    }
-  }
-
-  async createSession(task: CTIRTask): Promise<CCSession> {
-    try {
-      const taskId = task.id || `task-${Date.now()}`;
-      const session: CCSession = {
-        id: `session-${taskId}-${Date.now()}`,
-        tasks: [{
-          id: taskId,
-          description: task.description,
-          status: "in_progress",
-          metadata: {
-            category: task.category,
-            complexity: task.complexity
-          }
-        }],
-        context: {},
-        metadata: {
-          created: new Date().toISOString(),
-          source: "ctir"
-        }
-      };
-
-      this.logger.info(`Created CC-Session: ${session.id}`);
-      return session;
-
-    } catch (error) {
-      this.logger.error("Failed to create session:", error);
-      throw error;
-    }
-  }
-
-  async updateTaskStatus(sessionId: string, taskId: string, status: CCSessionTask["status"]): Promise<void> {
-    try {
-      this.logger.info(`Updating task ${taskId} in session ${sessionId} to status: ${status}`);
-
-      // This would update the actual CC-Sessions data
-      // For now, just simulate the operation
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      this.logger.info(`✅ Task status updated: ${taskId} -> ${status}`);
-
-    } catch (error) {
-      this.logger.error("Failed to update task status:", error);
-      throw error;
-    }
-  }
-
-  async getSessionContext(sessionId: string): Promise<Record<string, unknown>> {
-    try {
-      // This would retrieve actual session context from CC-Sessions
-      // For now, return a mock context
-      return {
-        workingDirectory: process.cwd(),
-        activeFiles: [],
-        recentTasks: [],
-        userPreferences: {}
-      };
-    } catch (error) {
-      this.logger.error("Failed to get session context:", error);
-      return {};
-    }
-  }
-
-  async saveSessionContext(sessionId: string, context: Record<string, unknown>): Promise<void> {
-    try {
-      this.logger.info(`Saving context for session: ${sessionId}`);
-
-      // This would save context to CC-Sessions
-      // For now, just log the operation
-      this.logger.info(`Context saved: ${Object.keys(context).length} keys`);
-
-    } catch (error) {
-      this.logger.error("Failed to save session context:", error);
-      throw error;
     }
   }
 }

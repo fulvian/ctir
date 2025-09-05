@@ -1,30 +1,40 @@
 import express from 'express';
-import { GeminiIntegration } from '../integrations/gemini';
+import { ModernSessionManager } from '../core/modern-session-manager';
 import { AutoResumeEngine } from '../core/autoResume';
 import { logger } from './logger';
 
 // Interfacce per i servizi da cui dipendiamo
 interface MetricsDependencies {
-  gemini: GeminiIntegration;
+  modernSessionManager: ModernSessionManager;
   autoResume: AutoResumeEngine;
 }
 
 // Funzione per formattare le metriche in formato Prometheus
 function getMetrics(dependencies: MetricsDependencies): string {
-  const { gemini, autoResume } = dependencies;
+  const { modernSessionManager, autoResume } = dependencies;
 
   // Recupera gli stati dai servizi
-  const circuitState = gemini.getCircuitBreakerState(); // Metodo da aggiungere
-  const sessionStatus = autoResume.getSessionStatus(); // Metodo da aggiungere
+  const sessionState = modernSessionManager.getCurrentState();
+  const claudeCodeActive = modernSessionManager.isClaudeCodeActive();
+  const tokenUsage = modernSessionManager.getTokenUsage();
+  const sessionStatus = autoResume.getSessionStatus();
 
   const metrics = [
     '# HELP ctir_claude_session_status Lo stato della sessione di Claude Code.',
     '# TYPE ctir_claude_session_status gauge',
     `ctir_claude_session_status ${sessionStatus.isLimited ? 1 : 0}`,
     '',
-    '# HELP ctir_gemini_circuit_breaker_status Lo stato del Circuit Breaker per le API di Gemini.',
-    '# TYPE ctir_gemini_circuit_breaker_status gauge',
-    `ctir_gemini_circuit_breaker_status{state="${circuitState.state}"} ${circuitState.value}`,
+    '# HELP ctir_modern_session_state Lo stato del Modern Session Manager.',
+    '# TYPE ctir_modern_session_state gauge',
+    `ctir_modern_session_state{state="${sessionState}"} 1`,
+    '',
+    '# HELP ctir_claude_code_active Se Claude Code è attivo.',
+    '# TYPE ctir_claude_code_active gauge',
+    `ctir_claude_code_active ${claudeCodeActive ? 1 : 0}`,
+    '',
+    '# HELP ctir_token_usage_percentage Percentuale di token utilizzati.',
+    '# TYPE ctir_token_usage_percentage gauge',
+    `ctir_token_usage_percentage ${tokenUsage ? tokenUsage.percentageUsed * 100 : 0}`,
   ];
 
   return metrics.join('\n');

@@ -5,16 +5,22 @@ import { SimpleRoutingEngine } from '@/core/router-simple';
 import { CTIRTask, TaskCategory } from '@/models/task';
 import { CTIRSession } from '@/models/session';
 import { logger } from '@/utils/logger';
+import type { CTIRCore } from '@/core/engine';
 
 export class CTIRProxy {
   private app = express();
   private classifier = new TaskClassifier();
   private router = new SimpleRoutingEngine();
   private port = 3001;
+  private ctirCore?: CTIRCore;
 
   constructor() {
     this.setupMiddleware();
     this.setupRoutes();
+  }
+
+  setCTIRCore(core: CTIRCore): void {
+    this.ctirCore = core;
   }
 
   private setupMiddleware() {
@@ -39,6 +45,33 @@ export class CTIRProxy {
         service: 'CTIR Proxy',
         timestamp: new Date().toISOString()
       });
+    });
+
+    // Model indicator endpoint
+    this.app.get('/model-indicator', (req, res) => {
+      try {
+        if (!this.ctirCore) {
+          return res.status(503).json({ 
+            error: 'CTIR Core not initialized',
+            indicator: '🎭 CTIR: Initializing...'
+          });
+        }
+
+        const indicator = this.ctirCore.getFormattedModelIndicator();
+        const data = this.ctirCore.getModelIndicator().getCurrentData();
+        
+        res.json({
+          indicator,
+          data,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        logger.error('Error getting model indicator', { error });
+        res.status(500).json({ 
+          error: 'Failed to get model indicator',
+          indicator: '🎭 CTIR: Error'
+        });
+      }
     });
 
     // Route analysis endpoint
@@ -128,12 +161,9 @@ export class CTIRProxy {
         if (decision.strategy === 'claude_direct') {
           // Proxy to Claude API
           await this.proxyToClaude(req, res);
-        } else if (decision.strategy === 'gemini_flash') {
-          // Route to Gemini Flash
-          await this.proxyToGemini(req, res, 'gemini-1.5-flash');
-        } else if (decision.strategy === 'gemini_pro') {
-          // Route to Gemini Pro
-          await this.proxyToGemini(req, res, 'gemini-1.5-pro');
+        } else if (decision.strategy.startsWith('openrouter_')) {
+          // Route to OpenRouter models
+          await this.proxyToOpenRouter(req, res, decision.strategy, decision.model);
         } else if (decision.strategy === 'ccr_local') {
           // Route to CCR local model
           await this.proxyToCCR(req, res);
@@ -220,40 +250,66 @@ export class CTIRProxy {
     };
   }
 
-  private async proxyToGemini(req: any, res: any, model: string) {
-    logger.info(`🎯 Routing to Gemini ${model}`);
+  private async proxyToOpenRouter(req: any, res: any, strategy: string, model?: string) {
+    logger.info(`🎯 Routing to OpenRouter ${strategy} (${model})`);
     
     try {
-      // Forward to Gemini API
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      // Forward to OpenRouter API
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${process.env.OPEN_ROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://ctir.dev',
+          'X-Title': 'CTIR - Claude Task Intelligence Router'
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: this.extractTaskDescription(req.body.messages)
-            }]
-          }]
+          model: model || this.getDefaultModelForStrategy(strategy),
+          messages: req.body.messages || [{
+            role: 'user',
+            content: this.extractTaskDescription(req.body.messages)
+          }],
+          temperature: 0.2,
+          max_tokens: 2048
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+      }
+
       const data = await response.json();
       
-      if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        const text = data.candidates[0].content.parts[0].text;
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        const text = data.choices[0].message.content;
         res.json({
           content: [{ type: 'text', text: text }],
-          model: model,
-          usage: { input_tokens: 0, output_tokens: 0 }
+          model: model || this.getDefaultModelForStrategy(strategy),
+          usage: data.usage || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
         });
       } else {
-        throw new Error('Invalid Gemini response format');
+        throw new Error('Invalid OpenRouter response format');
       }
     } catch (error) {
-      logger.error('❌ Gemini API error:', { error: error instanceof Error ? error.message : String(error) });
-      res.status(500).json({ error: 'Gemini API request failed' });
+      logger.error('❌ OpenRouter API error:', { error: error instanceof Error ? error.message : String(error) });
+      res.status(500).json({ error: 'OpenRouter API request failed' });
+    }
+  }
+
+  private getDefaultModelForStrategy(strategy: string): string {
+    switch (strategy) {
+      case 'openrouter_technical':
+        return 'qwen/qwen3-coder-480b-a35b-instruct';
+      case 'openrouter_prototyping':
+        return 'openai/gpt-oss-120b';
+      case 'openrouter_research':
+        return 'google/gemini-2.5-pro-experimental';
+      case 'openrouter_multilang':
+        return 'qwen/qwen2.5-coder-32b-instruct';
+      case 'openrouter_efficiency':
+        return 'agentica-org/deepcoder-14b-preview';
+      default:
+        return 'openai/gpt-oss-120b';
     }
   }
 

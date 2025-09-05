@@ -8,7 +8,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **MAJOR FEATURE**: Implemented intelligent routing system with CTIR Proxy
+- **Model Indicator System**: Real-time footer indicator showing which LLM model is currently working
+  - **ModelIndicator**: Core class for tracking and displaying current model status
+  - **API Endpoint**: `/model-indicator` endpoint exposing real-time model information
+  - **Visual Indicators**: Color-coded status showing model provider, confidence, token usage, and session state
+  - **Integration**: Full integration with CTIRCore and ModernSessionManager
+  - **Test Script**: `scripts/test-model-indicator.js` for monitoring model indicator in real-time
+  - **Format**: `🎭 CTIR: Sonnet 4 (Anthropic) | Conf: 90% | 🟢 0% | 🟢 active`
+- **Claude Code Footer Integration**: Complete integration system for displaying CTIR model indicator in Claude Code footer
+  - **Integration Scripts**: `claude-code-ctir-indicator.sh` with multiple display formats (show, footer, inline)
+  - **Real-time Monitoring**: Cached API calls with 5-second refresh for optimal performance
+  - **Multiple Formats**: Standard, footer box, inline status, and raw output formats
+  - **cc-sessions Compatible**: Integration examples for cc-sessions statusline
+  - **Documentation**: Complete integration guide with examples and troubleshooting
+  - **Demo Scripts**: `ctir-footer-demo.py` for testing integration patterns
+  - **Ready-to-use**: Immediate integration commands for Claude Code users
+  - **Permanent Footer**: `ctir-permanent-footer.sh` for continuous footer display
+  - **cc-sessions Hook**: `ctir-cc-sessions-hook.sh` for seamless cc-sessions integration
+  - **Startup Automation**: `start-ctir-claude.sh` for one-command system startup
+  - **Verified Working**: Successfully tested and confirmed working in Claude Code terminal
+
+### Files Added
+- `src/core/model-indicator.ts` - Core ModelIndicator class for real-time model tracking
+- `scripts/claude-code-ctir-indicator.sh` - Main integration script with multiple display formats
+- `scripts/ctir-model-indicator.sh` - Advanced indicator script with caching and monitoring
+- `scripts/ctir-footer-hook.py` - Python hook for Claude Code integration
+- `scripts/ctir-footer-demo.py` - Demo script showing integration patterns
+- `scripts/ctir-permanent-footer.sh` - Continuous footer display script
+- `scripts/ctir-cc-sessions-hook.sh` - cc-sessions integration hook
+- `scripts/start-ctir-claude.sh` - Automated startup script for complete system
+- `docs/ctir-footer-integration.md` - Technical integration documentation
+- `docs/claude-code-integration-guide.md` - User guide for Claude Code integration
+
+### Integration Methods
+- **Direct Command**: `./scripts/claude-code-ctir-indicator.sh show` - Immediate indicator display
+- **Footer Format**: `./scripts/claude-code-ctir-indicator.sh footer` - Boxed footer display
+- **Permanent Footer**: `./scripts/ctir-permanent-footer.sh` - Continuous monitoring
+- **cc-sessions**: Integration with cc-sessions statusline system
+- **API Direct**: `curl http://localhost:3001/model-indicator` - Direct API access
+- **Automated Startup**: `./scripts/start-ctir-claude.sh` - One-command system startup
+
+### Testing & Verification
+- **API Endpoint**: Verified `/model-indicator` endpoint responding correctly
+- **Claude Code Integration**: Confirmed working in Claude Code terminal (tested with `./scripts/claude-code-ctir-indicator.sh footer`)
+- **Real-time Updates**: Model indicator updates every 5 seconds with cached API calls
+- **Multiple Formats**: All display formats (show, footer, inline) tested and working
+- **Error Handling**: Graceful fallback when CTIR is offline or API unavailable
+- **Performance**: Cached responses prevent excessive API calls while maintaining real-time updates
+
+### Usage Examples
+```bash
+# Show current model status
+./scripts/claude-code-ctir-indicator.sh show
+
+# Display in footer format
+./scripts/claude-code-ctir-indicator.sh footer
+
+# Continuous monitoring
+./scripts/ctir-permanent-footer.sh
+
+# One-command startup
+./scripts/start-ctir-claude.sh
+```
+
+### Technical Improvements
+- **Caching System**: 5-second cache for API responses to optimize performance
+- **Error Resilience**: Graceful handling of CTIR offline states and API failures
+- **Color Coding**: Ayu Dark theme colors for consistent visual experience
+- **Multiple Output Formats**: Flexible display options for different use cases
+- **Cross-Platform**: Bash scripts compatible with macOS, Linux, and Unix systems
+- **API Integration**: RESTful API design with JSON responses and proper error handling
+- **Real-time Monitoring**: Live updates without blocking Claude Code operations
+
+### Changed
+- **CTIRCore**: Added ModelIndicator integration and getter methods
+- **CTIRProxy**: Added `/model-indicator` endpoint and CTIRCore reference
+- **Engine Integration**: ModelIndicator starts automatically with CTIRCore
+- **API Structure**: Enhanced proxy with model indicator endpoint
+
+### Next Steps
+- **Automatic Footer**: Integration with Claude Code UI for automatic footer display
+- **WebSocket Updates**: Real-time updates via WebSocket for instant model changes
+- **Custom Themes**: Additional color themes beyond Ayu Dark
+- **Metrics Dashboard**: Web-based dashboard for model usage analytics
+- **Mobile Support**: Mobile-friendly indicator display options
+
+- **MAJOR FEATURE: Multi-Model Orchestration System** - Complete implementation of intelligent task orchestration
+  - **CTIROrchestrationEngine**: Central orchestration engine with Sonnet 4 as primary orchestrator
+  - **TaskClassifier**: Advanced task classification with 10 categories and complexity scoring
+  - **CCSessionsIntegration**: Full integration with cc-sessions for task management and memory preservation
+  - **Multi-Model Routing**: Intelligent routing to specialized OpenRouter models based on task characteristics
+  - **Context Preservation**: Automatic context saving and restoration for session continuity
+  - **Task Files**: Structured YAML task files with routing metadata
+  - **Test Suite**: Comprehensive testing for all orchestration components
+- **MAJOR ARCHITECTURE CHANGE**: Implemented OpenRouter Multi-Model Strategy replacing Gemini/Ollama dual logic
+- **NEW**: OpenRouter integration with 5 specialized models:
+  - Qwen3-Coder-480B-A35B (Technical Lead & Architecture)
+  - OpenAI GPT-OSS-120B (Rapid Prototyping Specialist)  
+  - Google Gemini 2.5 Pro Experimental (Problem Solver & Research)
+  - Qwen2.5-Coder-32B-Instruct (Multi-Language Developer)
+  - Agentica DeepCoder-14B-Preview (Efficiency Champion)
+- **NEW**: Intelligent routing strategy: Sonnet 4 (primary) + OpenRouter (specialized tasks + fallback)
+- **NEW**: Modern Session Management System - Complete overhaul of Claude Code monitoring
+  - `ClaudeCodeHeartbeatMonitor`: Multi-source Claude Code detection (process, port, config files)
+  - `ModernSessionManager`: Intelligent session state management with transitions
+  - Bidirectional heartbeat communication via file system
+  - Multi-source consensus for reliable Claude Code detection
+  - Session states: ACTIVE, APPROACHING_LIMIT, FALLBACK_MODE, RESET_PENDING, RESETTING
+  - **REPLACES**: Old unstable log file monitoring system
+- **NEW**: Circuit breaker pattern for OpenRouter API resilience
+- **NEW**: Usage tracking and credit management for OpenRouter models
+- **NEW**: Model-specific configurations with temperature and token limits
+- **NEW**: Enhanced routing logic with domain knowledge and complexity analysis
 - **NEW**: CTIR Proxy server on port 3001 for intercepting Claude Code requests
 - **NEW**: Task classification system using TaskClassifier for complexity analysis
 - **NEW**: Routing decision engine using RoutingEngine for optimal model selection
@@ -22,6 +133,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **NEW**: SimpleRoutingEngine with clean decision tree for reliable task routing
 - **NEW**: Enhanced TaskClassifier with improved pattern recognition for complex domains
 
+### Changed
+- **DEPRECATED**: Gemini integration (replaced by OpenRouter)
+- **DEPRECATED**: Old Claude Code log file monitoring (replaced by Modern Session Management)
+- **UPDATED**: Routing strategies to use OpenRouter models instead of Gemini
+- **UPDATED**: Configuration files to include OpenRouter settings
+- **UPDATED**: Environment variables (removed GEMINI_API_KEY, added OPEN_ROUTER_API_KEY)
+- **UPDATED**: Prometheus metrics to reflect OpenRouter circuit breaker status
+- **UPDATED**: CTIRStatus interface to include modern session management fields
+- **UPDATED**: Core engine to use ModernSessionManager instead of old monitoring
+
 ### Fixed
 - **PERFORMANCE**: Replaced problematic Ollama TypeScript library with direct REST API calls
 - **ROUTING**: Fixed routing logic to properly distribute tasks across multiple AI providers
@@ -31,10 +152,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CLASSIFIER**: Enhanced TaskClassifier to properly recognize complex tasks (machine learning, AI, algorithms, etc.)
 
 ### Changed
-- **ARCHITECTURE**: Updated routing strategy to use multi-provider approach:
-  - Simple tasks (< 200 tokens) → Ollama local (phi4-mini:3.8b)
-  - Medium tasks (< 500 tokens) → Gemini Flash (gemini-1.5-flash)
-  - Complex tasks → Claude Sonnet (claude-3-5-sonnet-20241022)
+- **ARCHITECTURE**: Updated routing strategy to use Sonnet 4 + OpenRouter Multi-Model approach:
+  - Sonnet 4 remains primary model for complex tasks (complexity > 0.6)
+  - OpenRouter models handle specialized tasks and fallback scenarios
+  - DeepCoder-14B for performance optimization (complexity < 0.3)
+  - Qwen2.5-Coder-32B for multi-language and legacy maintenance
+  - GPT-OSS-120B for rapid prototyping and debugging
+  - Gemini 2.5 Pro for research and complex problems
+  - Qwen3-Coder-480B for architecture design
+- **DEPRECATED**: Gemini integration (maintained for compatibility but not used in routing)
+- **ENHANCED**: Task classification with domain knowledge analysis
+- **IMPROVED**: Routing confidence scoring based on model specialization
 - Initial CTIR core implementation with task classification and routing
 - MCP server (ctir-ollama-mcp) with analyze_error, generate_unit_tests, format_code tools
 - Auto-resume system for 5-hour Claude Code sessions

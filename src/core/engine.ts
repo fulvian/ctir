@@ -2,6 +2,8 @@ import { TaskClassifier } from "@/core/classifier";
 import { RoutingEngine } from "@/core/router";
 import { WorkStatePersistence, SessionTimingTracker, AutoResumeEngine } from "@/core/autoResume";
 import { ClaudeCodeMonitor } from "@/core/claude-monitor";
+import { ModernSessionManager } from "@/core/modern-session-manager";
+import { ModelIndicator } from "@/core/model-indicator";
 import { loadConfig } from "@/utils/config";
 import { logger } from "@/utils/logger";
 import { MCPIntegration } from "@/integrations/mcp";
@@ -9,6 +11,7 @@ import { FileCCRAdapter } from "@/integrations/ccr-adapter";
 import { CCRIntegration } from "@/integrations/ccr";
 import { CCSessionsIntegration } from "@/integrations/cc-sessions";
 import { GeminiIntegration } from "@/integrations/gemini";
+import { OpenRouterIntegration } from "@/integrations/openrouter";
 import { CTIRProxy } from "@/integrations/ctir-proxy";
 import { checkNodeVersion, checkDatabase, checkOllama } from "@/utils/health";
 
@@ -19,8 +22,11 @@ export class CTIRCore {
   private timing = new SessionTimingTracker();
   private autoResume = new AutoResumeEngine();
   private claudeMonitor = new ClaudeCodeMonitor(this.autoResume);
+  private modernSessionManager = new ModernSessionManager(this.autoResume);
+  private modelIndicator = new ModelIndicator(this.modernSessionManager);
   private mcp = new MCPIntegration();
   private gemini = new GeminiIntegration();
+  private openRouter = new OpenRouterIntegration();
   private ccr = new CCRIntegration();
   private ccs = new CCSessionsIntegration();
   private ccrState = new FileCCRAdapter();
@@ -30,6 +36,7 @@ export class CTIRCore {
   private dbOk = false;
   private ollamaOk = false;
   private geminiOk = false;
+  private openRouterOk = false;
 
   async start(): Promise<void> {
     const cfg = loadConfig();
@@ -38,12 +45,17 @@ export class CTIRCore {
 
     // Start CTIR Proxy for intelligent routing
     this.proxy.start();
+    this.proxy.setCTIRCore(this);
 
-    // Start active token monitoring
-    await this.autoResume.startTokenMonitoring();
+    // Start modern session management (replaces old monitoring)
+    await this.modernSessionManager.start();
 
-    // Start Claude Code monitoring
-    await this.claudeMonitor.startMonitoring();
+    // Start model indicator for footer display
+    await this.modelIndicator.start();
+
+    // DEPRECATED: Keep old monitoring for compatibility (will be removed)
+    // await this.autoResume.startTokenMonitoring();
+    // await this.claudeMonitor.startMonitoring();
 
     // Basic environment checks
     const nodeOk = await checkNodeVersion(18);
@@ -68,18 +80,29 @@ export class CTIRCore {
       this.router.setMcpAvailability(false);
     }
 
-    // Gemini health and credit
+    // OpenRouter health and credit (replaces Gemini)
+    try {
+      this.openRouterOk = await this.openRouter.healthCheck();
+      this.router.setOpenRouterAvailability(this.openRouterOk);
+      const credit = this.openRouter.isCreditAvailable();
+      this.router.setOpenRouterCreditAvailable(credit);
+      if (this.openRouterOk) logger.info(`OpenRouter available (credit: ${credit ? "yes" : "near/at limit"})`);
+      else logger.warn("OpenRouter not available; routing will skip OpenRouter strategies");
+    } catch (err) {
+      logger.warn("OpenRouter health-check failed; assuming unavailable", { error: err instanceof Error ? err.message : String(err) });
+      this.router.setOpenRouterAvailability(false);
+      this.router.setOpenRouterCreditAvailable(false);
+    }
+
+    // Gemini health and credit (DEPRECATED - mantenuto per compatibilità)
     try {
       this.geminiOk = await this.gemini.healthCheck();
-      this.router.setGeminiAvailability(this.geminiOk);
-      const credit = this.gemini.isCreditAvailable();
-      this.router.setGeminiCreditAvailable(credit);
-      if (this.geminiOk) logger.info(`Gemini available (credit: ${credit ? "yes" : "near/at limit"})`);
-      else logger.warn("Gemini not available; routing will skip Gemini strategies");
+      // Non impostiamo più Gemini nel router, è sostituito da OpenRouter
+      if (this.geminiOk) logger.info("Gemini available (DEPRECATED - use OpenRouter instead)");
+      else logger.warn("Gemini not available (DEPRECATED - use OpenRouter instead)");
     } catch (err) {
-      logger.warn("Gemini health-check failed; assuming unavailable", { error: err instanceof Error ? err.message : String(err) });
-      this.router.setGeminiAvailability(false);
-      this.router.setGeminiCreditAvailable(false);
+      logger.warn("Gemini health-check failed (DEPRECATED - use OpenRouter instead)", { error: err instanceof Error ? err.message : String(err) });
+      this.geminiOk = false;
     }
 
     // CCR health (presence/installed)
@@ -126,7 +149,7 @@ export class CTIRCore {
 
     // Update routing/local-only + status file periodically
     setInterval(async () => {
-      const inFallback = this.autoResume.isInFallback();
+      const inFallback = this.modernSessionManager.isInFallbackMode();
       try {
         // Keep router in sync with fallback/local-only mode
         if (inFallback) {
@@ -141,7 +164,11 @@ export class CTIRCore {
           status: inFallback ? "fallback_mode" : "active",
           fallbackMode: inFallback,
           mcpAvailable: this.mcpAvailable,
-          ollamaAvailable: this.ollamaOk
+          ollamaAvailable: this.ollamaOk,
+          openRouterAvailable: this.openRouterOk,
+          modernSessionManager: true,
+          sessionState: this.modernSessionManager.getCurrentState(),
+          claudeCodeActive: this.modernSessionManager.isClaudeCodeActive()
         });
       } catch (error) {
         logger.error("Failed to sync routing/status:", { error: error instanceof Error ? error.message : String(error) });
@@ -154,8 +181,16 @@ export class CTIRCore {
     return this.autoResume;
   }
 
-  public getGeminiIntegration(): GeminiIntegration {
-    return this.gemini;
+  public getModernSessionManager(): ModernSessionManager {
+    return this.modernSessionManager;
+  }
+
+  public getModelIndicator(): ModelIndicator {
+    return this.modelIndicator;
+  }
+
+  public getFormattedModelIndicator(): string {
+    return this.modelIndicator.getFormattedIndicator();
   }
   // --- END: Getters for Dependency Injection ---
 }

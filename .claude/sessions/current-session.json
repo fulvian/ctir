@@ -1,0 +1,87 @@
+{
+  "sessionId": "session-1757112739911-jdcdxarmc",
+  "projectRoot": "/Users/fulvioventura/Desktop/ctir",
+  "contextManifest": {
+    "projectOverview": "## CTIR — Claude Task Intelligence Router\n\nCTIR ottimizza l’uso di Claude Code orchestrando i task tra Claude, modelli locali via Ollama e tool MCP dedicati. Include un sistema di auto-resume per sfruttare al massimo le finestre di 5 ore e minimizzare tempi morti.\n\nPer i dettagli progettuali e di visione, consulta i documenti in `docs/idee_fondanti/*`.\nPer l’uso operativo dettagliato (installazione, produzione, utilizzo, manutenzione), vedi `docs/guida_ctir.md`.\n\n**Caratteristiche Principali**\n-",
+    "techStack": [
+      "@google/generative-ai",
+      "@types/express",
+      "@types/node",
+      "@types/sqlite3",
+      "@types/ws",
+      "dotenv",
+      "express",
+      "http-proxy-middleware",
+      "ollama",
+      "sqlite3",
+      "ws",
+      "zod"
+    ],
+    "keyFiles": [
+      "CHANGELOG.md",
+      "README.md",
+      "claude-code-ctir-config.json",
+      "claude-code-mcp-config.json",
+      "claude_test_prompt.md",
+      "config.json",
+      "ctir-ccr-config.json",
+      "ctir-mcp-config.json",
+      "package-lock.json",
+      "package.json"
+    ],
+    "dependencies": [
+      "@types/fs-extra",
+      "@typescript-eslint/eslint-plugin",
+      "@typescript-eslint/parser",
+      "@vitest/coverage-v8",
+      "eslint",
+      "fs-extra",
+      "tsc-alias",
+      "tsx",
+      "typescript",
+      "vitest"
+    ],
+    "recentChanges": [],
+    "contextRules": [
+      "Follow existing code patterns",
+      "Maintain test coverage",
+      "Use TypeScript strict mode",
+      "Follow project naming conventions",
+      "Document complex logic"
+    ]
+  },
+  "taskHistory": [],
+  "sessionState": {
+    "currentBranch": "openrouter_models",
+    "modifiedFiles": [
+      ".claude/ctir-status.json",
+      "CHANGELOG.md",
+      "config/default.json",
+      "env.example",
+      "src/core/autoResume.ts",
+      "src/core/engine.ts",
+      "src/core/router-simple.ts",
+      "src/core/router.ts",
+      "src/index.ts",
+      "src/integrations/cc-sessions.ts",
+      "src/integrations/ctir-proxy.ts",
+      "src/models/routing.ts",
+      "src/utils/metrics.ts",
+      "submodules/cc-sessions",
+      "docs/openrouter-strategy.md",
+      "src/core/claude-code-heartbeat.ts",
+      "src/core/claude-code-token-monitor.ts",
+      "src/core/modern-session-manager.ts",
+      "src/core/orchestration-engine.ts",
+      "src/integrations/openrouter.ts"
+    ],
+    "lastCommit": "6daed82 fix: Resolve routing logic conflicts and API authentication issues",
+    "dependencies": [],
+    "testStatus": "unknown",
+    "activeAgents": [],
+    "contextWindow": {
+      "size": 160000,
+      "utilization": 0
+    }
+  }
+}

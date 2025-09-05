@@ -1,14 +1,19 @@
 {
   "status": "active",
   "fallbackMode": false,
-  "lastUpdate": "2025-09-05T20:59:11.959Z",
+  "lastUpdate": "2025-09-05T23:04:17.134Z",
   "mcpAvailable": true,
   "ollamaAvailable": true,
   "sessionStart": "2025-09-05T16:33:06.082Z",
   "tokenLimitReached": false,
   "recommendations": {
-    "useLocalModels": false,
-    "forceMCP": false,
-    "message": "Claude Code session active - use normally"
-  }
+    "useLocalModels": true,
+    "forceMCP": true,
+    "message": "Near token limit - use local models when possible"
+  },
+  "sessionState": "active",
+  "modernSessionManager": true,
+  "reason": "Session exceeded 5-hour limit",
+  "openRouterAvailable": true,
+  "claudeCodeActive": true
 }

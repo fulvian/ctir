@@ -11,7 +11,7 @@ async function main() {
 
   // Setup and start the metrics server
   setupMetricsServer({
-    gemini: core.getGeminiIntegration(),
+    modernSessionManager: core.getModernSessionManager(),
     autoResume: core.getAutoResumeEngine(),
   });
 }

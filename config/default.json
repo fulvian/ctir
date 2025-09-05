@@ -37,9 +37,20 @@
           "ctir-ollama-mcp"
         ]
       },
-      "gemini": {
+      "openrouter": {
         "enabled": true,
-        "primary": true
+        "primary": true,
+        "models": {
+          "technical": "qwen/qwen3-coder-480b-a35b-instruct",
+          "prototyping": "openai/gpt-oss-120b",
+          "research": "google/gemini-2.5-pro-experimental",
+          "multilang": "qwen/qwen2.5-coder-32b-instruct",
+          "efficiency": "agentica-org/deepcoder-14b-preview"
+        },
+        "fallback": {
+          "enabled": true,
+          "priority": ["technical", "research", "prototyping"]
+        }
       }
     },
     "autoResume": {
