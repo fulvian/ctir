@@ -19,11 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **NEW**: Health monitoring endpoint at /health
 - **NEW**: Gemini API integration for task routing (Flash/Pro models)
 - **NEW**: Ollama REST API integration replacing TypeScript library for better performance
+- **NEW**: SimpleRoutingEngine with clean decision tree for reliable task routing
+- **NEW**: Enhanced TaskClassifier with improved pattern recognition for complex domains
 
 ### Fixed
 - **PERFORMANCE**: Replaced problematic Ollama TypeScript library with direct REST API calls
 - **ROUTING**: Fixed routing logic to properly distribute tasks across multiple AI providers
 - **INTEGRATION**: Resolved Claude Code proxy configuration and environment variable setup
+- **CRITICAL FIX**: Resolved API key authentication issues in CTIR Proxy by extracting API key from Authorization header
+- **ROUTING LOGIC**: Fixed complex routing logic conflicts by implementing SimpleRoutingEngine with clean decision tree
+- **CLASSIFIER**: Enhanced TaskClassifier to properly recognize complex tasks (machine learning, AI, algorithms, etc.)
 
 ### Changed
 - **ARCHITECTURE**: Updated routing strategy to use multi-provider approach:

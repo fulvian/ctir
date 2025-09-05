@@ -54,8 +54,8 @@ export class RoutingEngine {
       };
     }
 
-    // Task medi → Gemini Flash
-    if (complexity < 0.6 && estimatedTokens < 500) {
+    // Task medi → Gemini Flash (solo se non è un task complesso)
+    if (complexity < 0.6 && estimatedTokens < 500 && complexity <= 0.4) {
       return {
         strategy: "gemini_flash", 
         confidence: 0.8,
@@ -63,15 +63,15 @@ export class RoutingEngine {
       };
     }
 
-    // Task complessi → Claude Sonnet
+    // Task complessi → Claude Sonnet (totalScore >= 0.5)
     return {
       strategy: "claude_direct",
       confidence: 0.85,
       reasoning: "Task complesso → Claude Sonnet",
     };
 
-    // PRIORITÀ 5: Gemini se disponibile
-    if (this.geminiAvailable && this.geminiCreditAvailable) {
+    // PRIORITÀ 5: Gemini se disponibile (DISABILITATO - usa logica sopra)
+    if (false && this.geminiAvailable && this.geminiCreditAvailable) {
       const heavy = complexity > 0.6 || estimatedTokens > 500;
       if (!this.localOnlyMode) {
         if (heavy) {
@@ -140,8 +140,8 @@ export class RoutingEngine {
       };
     }
 
-    // Decision rules (MVP)
-    if (complexity > 0.7 || budget.remaining < 0.1) {
+    // Decision rules (MVP) - DISABILITATO - usa logica sopra
+    if (false && complexity > 0.7 || budget.remaining < 0.1) {
       return {
         strategy: "claude_direct",
         confidence: 0.8,
@@ -177,7 +177,7 @@ export class RoutingEngine {
       };
     }
 
-    if (
+    if (false &&
       complexity < 0.6 &&
       [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category) &&
       this.mcpAvailable
@@ -190,8 +190,8 @@ export class RoutingEngine {
       };
     }
 
-    // If MCP would have been preferred but is unavailable, fall back safely
-    if (
+    // If MCP would have been preferred but is unavailable, fall back safely (DISABILITATO)
+    if (false &&
       complexity < 0.6 &&
       [TaskCategory.UNIT_TESTING, TaskCategory.DOCUMENTATION].includes(category) &&
       !this.mcpAvailable

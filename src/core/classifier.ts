@@ -18,10 +18,10 @@ export class TaskClassifier {
     else if (/multi-file|complex|race|deadlock/.test(text)) category = TaskCategory.COMPLEX_DEBUGGING;
     else if (/bug|error|fix|stack trace/.test(text)) category = TaskCategory.SIMPLE_DEBUG;
 
-    const fileCount = /multi|across files|monorepo/.test(text) ? 5 : 1;
-    const lineCount = /large|big|thousands|massive/.test(text) ? 1000 : 100;
-    const contextDeps = /depends|needs context|cross/.test(text) ? 5 : 1;
-    const domainKnowledge = /ml|crypto|compiler|kernel/.test(text) ? 5 : 1;
+    const fileCount = /multi|across files|monorepo|completo|complete|sistema|system/.test(text) ? 5 : 1;
+    const lineCount = /large|big|thousands|massive|completo|complete|sistema|system|preprocessing|training|validation|deployment/.test(text) ? 1000 : 100;
+    const contextDeps = /depends|needs context|cross|completo|complete|sistema|system|integration|integrate/.test(text) ? 5 : 1;
+    const domainKnowledge = /ml|machine learning|ai|artificial intelligence|crypto|compiler|kernel|deep learning|neural|algorithm|optimization|statistical|predictive|analytics/.test(text) ? 5 : 1;
 
     // Normalize to 0..1 (lightweight heuristic)
     const weights = { file: 0.3, line: 0.2, ctx: 0.25, domain: 0.25 };

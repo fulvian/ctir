@@ -1,7 +1,7 @@
 {
-  "status": "fallback_mode",
-  "fallbackMode": true,
-  "lastUpdate": "2025-09-05T17:22:37.285Z",
+  "status": "active",
+  "fallbackMode": false,
+  "lastUpdate": "2025-09-05T20:59:11.959Z",
   "mcpAvailable": true,
   "ollamaAvailable": true,
   "sessionStart": "2025-09-05T16:33:06.082Z",

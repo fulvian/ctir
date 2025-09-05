@@ -1,7 +1,7 @@
 import express from 'express';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { TaskClassifier } from '@/core/classifier';
-import { RoutingEngine } from '@/core/router';
+import { SimpleRoutingEngine } from '@/core/router-simple';
 import { CTIRTask, TaskCategory } from '@/models/task';
 import { CTIRSession } from '@/models/session';
 import { logger } from '@/utils/logger';
@@ -9,7 +9,7 @@ import { logger } from '@/utils/logger';
 export class CTIRProxy {
   private app = express();
   private classifier = new TaskClassifier();
-  private router = new RoutingEngine();
+  private router = new SimpleRoutingEngine();
   private port = 3001;
 
   constructor() {
@@ -269,12 +269,20 @@ export class CTIRProxy {
       
       logger.info(`🎯 Using ${model} for task: ${taskDescription.substring(0, 30)}...`);
       
+      // Extract API key from Authorization header
+      const authHeader = req.headers.authorization;
+      const apiKey = authHeader ? authHeader.replace('Bearer ', '') : process.env.ANTHROPIC_API_KEY || '';
+      
+      if (!apiKey) {
+        throw new Error('No API key found in request headers or environment');
+      }
+      
       // Forward to actual Claude API
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+          'x-api-key': apiKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
