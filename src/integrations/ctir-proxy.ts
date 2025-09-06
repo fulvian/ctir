@@ -15,6 +15,7 @@ export class CTIRProxy {
   private port = 3001;
   private ctirCore?: CTIRCore;
   private sessionMonitor?: ClaudeSessionMonitor;
+  private transcriptDir = pathJoin(process.cwd(), '.claude', 'transcripts');
 
   constructor() {
     this.setupMiddleware();
@@ -46,6 +47,8 @@ export class CTIRProxy {
   private setupMiddleware() {
     // Parse JSON bodies
     this.app.use(express.json({ limit: '50mb' }));
+    // Ensure transcript directory exists
+    try { fsMkdirSync(this.transcriptDir, { recursive: true }); } catch {}
     
     // Log all requests
     this.app.use((req, res, next) => {
@@ -431,7 +434,7 @@ export class CTIRProxy {
           : [{ type: 'text', text: String(text) }];
 
         // Respond using Anthropic Messages schema
-        res.json({
+        const payload = {
           id: data.id || `ctir-${Date.now()}`,
           type: 'message',
           role: 'assistant',
@@ -443,7 +446,28 @@ export class CTIRProxy {
             input_tokens: data.usage?.prompt_tokens || 0,
             output_tokens: data.usage?.completion_tokens || 0
           }
-        });
+        };
+
+        // Log assistant message to transcript
+        try {
+          await this.appendTranscript({
+            timestamp: new Date().toISOString(),
+            isSidechain: false,
+            role: 'assistant',
+            provider: 'openrouter',
+            model: payload.model,
+            message: {
+              usage: {
+                input_tokens: payload.usage.input_tokens || 0,
+                output_tokens: payload.usage.output_tokens || 0,
+                cache_read_input_tokens: 0,
+                cache_creation_input_tokens: 0
+              }
+            }
+          });
+        } catch {}
+
+        res.json(payload);
       } else {
         throw new Error('Invalid OpenRouter response format');
       }
@@ -549,7 +573,7 @@ export class CTIRProxy {
         ? text
         : [{ type: 'text', text: String(text) }];
 
-      res.json({
+      const payload2 = {
         id: data.id || `ctir-${Date.now()}`,
         type: 'message',
         role: 'assistant',
@@ -561,7 +585,27 @@ export class CTIRProxy {
           input_tokens: data.usage?.prompt_tokens || 0,
           output_tokens: data.usage?.completion_tokens || 0
         }
-      });
+      };
+
+      try {
+        await this.appendTranscript({
+          timestamp: new Date().toISOString(),
+          isSidechain: false,
+          role: 'assistant',
+          provider: 'openrouter',
+          model: payload2.model,
+          message: {
+            usage: {
+              input_tokens: payload2.usage.input_tokens || 0,
+              output_tokens: payload2.usage.output_tokens || 0,
+              cache_read_input_tokens: 0,
+              cache_creation_input_tokens: 0
+            }
+          }
+        });
+      } catch {}
+
+      res.json(payload2);
 
     } catch (error) {
       logger.error('❌ CTIR Proxy: OpenRouter direct routing failed', { error });
@@ -593,6 +637,18 @@ export class CTIRProxy {
       if (!apiKey) {
         throw new Error('No API key found in request headers or environment');
       }
+        // Append user message to transcript (last user part)
+        try {
+          const last = Array.isArray(messages) ? messages[messages.length - 1] : null;
+          if (last && last.role === 'user') {
+            await this.appendTranscript({
+              timestamp: new Date().toISOString(),
+              isSidechain: false,
+              role: 'user',
+              content: last.content
+            });
+          }
+        } catch {}
       
       // Ensure anthropic-version is present
       const anthropicVersion = (req.headers['anthropic-version'] as string) || '2023-06-01';
@@ -612,6 +668,26 @@ export class CTIRProxy {
       });
 
       const data = await response.json();
+      // Log assistant message to transcript
+      try {
+        const usage = data.usage || {};
+        await this.appendTranscript({
+          timestamp: new Date().toISOString(),
+          isSidechain: false,
+          role: 'assistant',
+          provider: 'anthropic',
+          model: data.model,
+          message: {
+            usage: {
+              input_tokens: usage.input_tokens || 0,
+              output_tokens: usage.output_tokens || 0,
+              cache_read_input_tokens: usage.cache_read_input_tokens || 0,
+              cache_creation_input_tokens: usage.cache_creation_input_tokens || 0
+            }
+          }
+        });
+      } catch {}
+
       res.status(response.status).json(data);
     } catch (error) {
       logger.error('❌ Claude API error:', { error: error instanceof Error ? error.message : String(error) });
@@ -628,6 +704,30 @@ export class CTIRProxy {
     });
   }
 }
+
+// Utilities for transcript logging
+import { mkdirSync as fsMkdirSync, appendFileSync as fsAppendFileSync } from 'fs';
+import { join as pathJoin } from 'path';
+
+interface TranscriptEntry {
+  timestamp: string;
+  isSidechain: boolean;
+  role: 'user' | 'assistant' | 'system';
+  provider?: string;
+  model?: string;
+  content?: any;
+  message?: { usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } };
+}
+
+CTIRProxy.prototype['appendTranscript'] = async function(entry: TranscriptEntry) {
+  try {
+    // Ensure dir exists
+    fsMkdirSync(this.transcriptDir, { recursive: true });
+    const day = new Date().toISOString().slice(0,10);
+    const file = pathJoin(this.transcriptDir, `ctir-${day}.jsonl`);
+    fsAppendFileSync(file, JSON.stringify(entry) + '\n', { encoding: 'utf8' });
+  } catch {}
+};
 
 // Start the proxy if this file is run directly
 if (require.main === module) {

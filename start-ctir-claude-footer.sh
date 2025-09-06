@@ -103,7 +103,9 @@ launch_claude_with_footer() {
   tmux split-window -v -p 20 -t ctir_footer:0 bash -lc "cd '$PROJECT_DIR'; \
     while true; do \
       clear; \
-      ctx='{\"workspace\":{\"current_dir\":\"'$PROJECT_DIR'\"},\"model\":{\"display_name\":\"Claude Sonnet 4\"},\"session_id\":\"ctir-session\"}'; \
+      day=\$(date '+%Y-%m-%d'); \
+      tx_path='$PROJECT_DIR/.claude/transcripts/ctir-'\"\$day\"'.jsonl'; \
+      ctx='{\"workspace\":{\"current_dir\":\"'$PROJECT_DIR'\"},\"model\":{\"display_name\":\"Claude Sonnet 4\"},\"session_id\":\"ctir-session\",\"transcript_path\":\"'\"\$tx_path\"'\"}'; \
       echo \"$ctx\" | bash .claude/hooks/statusline-script.sh 2>/dev/null || echo '(statusline non disponibile)'; \
       echo; \
       ./scripts/claude-code-ctir-indicator.sh footer 2>/dev/null || echo '(CTIR footer non disponibile)'; \
