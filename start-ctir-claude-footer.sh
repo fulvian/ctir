@@ -86,9 +86,17 @@ launch_claude_with_footer() {
   tmux has-session -t ctir_footer 2>/dev/null && tmux kill-session -t ctir_footer 2>/dev/null || true
 
   # Pane superiore: Claude CLI (cc-sessions originale)
-  if ! tmux new-session -d -s ctir_footer bash -lc 'export ANTHROPIC_BASE_URL="http://localhost:3001"; export ANTHROPIC_API_URL="http://localhost:3001"; unset ANTHROPIC_API_KEY; claude'; then
-    err "Impossibile creare la sessione tmux (controlla TTY/permessi)."
-    exit 1
+  if command -v script >/dev/null 2>&1; then
+    # Usa 'script' per garantire un pty valido anche in ambienti con TTY limitato
+    if ! script -q /dev/null tmux new-session -d -s ctir_footer bash -lc 'export ANTHROPIC_BASE_URL="http://localhost:3001"; export ANTHROPIC_API_URL="http://localhost:3001"; unset ANTHROPIC_API_KEY; claude'; then
+      err "Impossibile creare la sessione tmux (anche con script). Controlla TTY/permessi."
+      exit 1
+    fi
+  else
+    if ! tmux new-session -d -s ctir_footer bash -lc 'export ANTHROPIC_BASE_URL="http://localhost:3001"; export ANTHROPIC_API_URL="http://localhost:3001"; unset ANTHROPIC_API_KEY; claude'; then
+      err "Impossibile creare la sessione tmux (controlla TTY/permessi)."
+      exit 1
+    fi
   fi
 
   # Pane inferiore (20%): statusline cc-sessions + CTIR footer
