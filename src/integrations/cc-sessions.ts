@@ -2,6 +2,8 @@ import { logger } from "@/utils/logger";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { CCSessionsHooksManager } from "./cc-sessions-hooks";
+import { CCSessionsStatusline } from "./cc-sessions-statusline";
 
 export interface CCSession {
   sessionId: string;
@@ -67,12 +69,18 @@ export class CCSessionsIntegration {
   private sessionsPath: string;
   private tasksPath: string;
   private contextPath: string;
+  private hooksManager: CCSessionsHooksManager;
+  private statusline: CCSessionsStatusline;
 
   constructor(projectRoot?: string) {
     this.projectRoot = projectRoot || process.cwd();
     this.sessionsPath = path.join(this.projectRoot, '.claude', 'sessions');
     this.tasksPath = path.join(this.sessionsPath, 'tasks');
     this.contextPath = path.join(this.sessionsPath, 'context');
+    
+    // Initialize hooks and statusline managers
+    this.hooksManager = new CCSessionsHooksManager(this.projectRoot);
+    this.statusline = new CCSessionsStatusline(this.projectRoot);
     
     this.initializeDirectories();
     logger.info("CC-Sessions integration initialized", { 
@@ -120,6 +128,60 @@ export class CCSessionsIntegration {
     logger.info("Created initial cc-sessions session", { 
       sessionId: initialSession.sessionId 
     });
+  }
+
+  /**
+   * Bootstrap project structure and config if missing
+   * - Ensures .claude/{hooks,state,sessions} and sessions/{tasks,context}
+   * - Copies statusline and daic from submodule when available
+   * - Creates sessions/sessions-config.json if missing
+   * - Adds sessions/tasks/TEMPLATE.md and CLAUDE.sessions.md from templates when available
+   */
+  async bootstrapProjectIfNeeded(): Promise<void> {
+    try {
+      // Ensure base directories
+      await this.initializeDirectories();
+
+      // Ensure hooks (statusline + daic)
+      await this.hooksManager["initializeHooks" as keyof CCSessionsHooksManager]?.call(this.hooksManager);
+
+      // Ensure sessions-config.json exists
+      const cfgPath = path.join(this.projectRoot, 'sessions', 'sessions-config.json');
+      try {
+        await fs.access(cfgPath);
+      } catch {
+        await this.hooksManager["createDefaultConfig" as keyof CCSessionsHooksManager]?.call(this.hooksManager);
+      }
+
+      // Copy templates when available
+      const subRoot = path.join(this.projectRoot, 'submodules', 'cc-sessions', 'cc_sessions', 'templates');
+      const tasksDir = path.join(this.projectRoot, 'sessions', 'tasks');
+      await fs.mkdir(tasksDir, { recursive: true });
+
+      // Task TEMPLATE.md
+      try {
+        const templateSrc = path.join(subRoot, 'TEMPLATE.md');
+        const templateDst = path.join(tasksDir, 'TEMPLATE.md');
+        try { await fs.access(templateDst); } catch {
+          await fs.copyFile(templateSrc, templateDst);
+        }
+      } catch { /* template optional */ }
+
+      // CLAUDE.sessions.md in project root
+      try {
+        const sessionsTpl = path.join(subRoot, 'CLAUDE.sessions.md');
+        const sessionsMd = path.join(this.projectRoot, 'CLAUDE.sessions.md');
+        try { await fs.access(sessionsMd); } catch {
+          await fs.copyFile(sessionsTpl, sessionsMd);
+        }
+      } catch { /* optional */ }
+
+      logger.info("cc-sessions bootstrap completed", {
+        projectRoot: this.projectRoot
+      });
+    } catch (error) {
+      logger.warn("cc-sessions bootstrap encountered issues (continuing)", { error: error instanceof Error ? error.message : String(error) });
+    }
   }
 
   /**
@@ -487,13 +549,127 @@ export class CCSessionsIntegration {
   }
 
   /**
+   * Get hooks manager instance
+   */
+  getHooksManager(): CCSessionsHooksManager {
+    return this.hooksManager;
+  }
+
+  /**
+   * Get statusline instance
+   */
+  getStatusline(): CCSessionsStatusline {
+    return this.statusline;
+  }
+
+  /**
+   * Toggle DAIC mode
+   */
+  async toggleDAICMode(): Promise<string> {
+    const newState = await this.hooksManager.toggleDAICMode();
+    return newState.mode === 'discussion' ? 'Discussion Mode' : 'Implementation Mode';
+  }
+
+  /**
+   * Get current DAIC mode
+   */
+  async getDAICMode(): Promise<string> {
+    const state = await this.hooksManager.getDAICMode();
+    return state.mode === 'discussion' ? 'Discussion Mode' : 'Implementation Mode';
+  }
+
+  /**
+   * Check if tool should be blocked
+   */
+  async shouldBlockTool(toolName: string, toolInput: any): Promise<{ blocked: boolean; reason?: string }> {
+    return await this.hooksManager.shouldBlockTool(toolName, toolInput);
+  }
+
+  /**
+   * Generate statusline data
+   */
+  async generateStatusline(context: any): Promise<string> {
+    const data = await this.statusline.generateStatusline(context);
+    return this.statusline.formatStatusline(data);
+  }
+
+  /**
+   * Set current task with branch enforcement
+   */
+  async setCurrentTask(taskName: string, branchName: string, services: string[] = []): Promise<void> {
+    await this.hooksManager.setTaskState(taskName, branchName, services);
+    
+    // Update current session
+    await this.updateCurrentTask(taskName);
+    
+    logger.info(`Current task set: ${taskName} on branch ${branchName}`);
+  }
+
+  /**
+   * Create a markdown task file from TEMPLATE.md
+   */
+  async createMarkdownTaskFile(taskFileName: string, description?: string): Promise<string> {
+    const templatePath = path.join(this.projectRoot, 'submodules', 'cc-sessions', 'cc_sessions', 'templates', 'TEMPLATE.md');
+    const tasksDir = path.join(this.projectRoot, 'sessions', 'tasks');
+    await fs.mkdir(tasksDir, { recursive: true });
+    const dest = path.join(tasksDir, `${taskFileName}.md`);
+    try {
+      const tpl = await fs.readFile(templatePath, 'utf-8');
+      const content = description ? tpl.replace(/\[\[TASK_DESCRIPTION\]\]/g, description) : tpl;
+      await fs.writeFile(dest, content);
+    } catch {
+      // Fallback to basic file
+      await fs.writeFile(dest, `# ${taskFileName}\n\n${description || ''}\n`);
+    }
+    return dest;
+  }
+
+  /**
+   * Link transcript path to current session (lightweight helper)
+   */
+  async linkTranscript(transcriptPath: string): Promise<void> {
+    try {
+      const sessionFile = path.join(this.sessionsPath, 'current-session.json');
+      const session: CCSession = JSON.parse(await fs.readFile(sessionFile, 'utf-8'));
+      // attach as recentChanges entry
+      session.contextManifest.recentChanges = [
+        ...(session.contextManifest.recentChanges || []),
+        `transcript: ${transcriptPath}`
+      ].slice(-20);
+      await fs.writeFile(sessionFile, JSON.stringify(session, null, 2));
+    } catch (e) {
+      logger.warn('Failed to link transcript', { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  /**
+   * Session start hook pass-through
+   */
+  async onSessionStart(context: any): Promise<void> {
+    await this.hooksManager.runSessionStartHook(context);
+  }
+
+  /**
    * Health check per verificare se cc-sessions è disponibile
    */
   async healthCheck(): Promise<boolean> {
     try {
       await fs.access(this.sessionsPath);
-      logger.debug(`cc-sessions health check passed: ${this.sessionsPath}`);
-      return true;
+      
+      // Check hooks health
+      const hooksHealthy = await this.hooksManager.healthCheck();
+      
+      // Check statusline health
+      const statuslineHealthy = await this.statusline.healthCheck();
+      
+      const overallHealthy = hooksHealthy && statuslineHealthy;
+      
+      logger.debug(`cc-sessions health check ${overallHealthy ? 'passed' : 'failed'}: ${this.sessionsPath}`, {
+        hooks: hooksHealthy,
+        statusline: statuslineHealthy
+      });
+      
+      return overallHealthy;
     } catch (error) {
       logger.warn(`cc-sessions health check failed: ${this.sessionsPath}`, { error: error instanceof Error ? error.message : String(error) });
       return false;

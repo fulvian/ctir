@@ -150,6 +150,64 @@ export class CTIRProxy {
       }
     });
 
+    // Add trigger phrase
+    this.app.post('/cc-sessions/add-trigger', async (req, res) => {
+      try {
+        const phrase = String(req.body?.phrase || '').trim();
+        if (!phrase) return res.status(400).json({ error: 'phrase_required' });
+        const configPath = pathJoin(process.cwd(), 'sessions', 'sessions-config.json');
+        const data = JSON.parse(await fsPromises.readFile(configPath, 'utf-8'));
+        const list = new Set<string>(Array.isArray(data.trigger_phrases) ? data.trigger_phrases : []);
+        list.add(phrase);
+        data.trigger_phrases = Array.from(list);
+        await fsPromises.writeFile(configPath, JSON.stringify(data, null, 2));
+        res.json({ ok: true, trigger_phrases: data.trigger_phrases });
+      } catch (error) {
+        logger.error('cc-sessions add-trigger error', { error });
+        res.status(500).json({ error: 'add_trigger_failed' });
+      }
+    });
+
+    // API mode get/set
+    this.app.get('/cc-sessions/api-mode', async (req, res) => {
+      try {
+        const configPath = pathJoin(process.cwd(), 'sessions', 'sessions-config.json');
+        const data = JSON.parse(await fsPromises.readFile(configPath, 'utf-8'));
+        res.json({ api_mode: Boolean(data.api_mode) });
+      } catch (error) {
+        res.status(500).json({ error: 'read_failed' });
+      }
+    });
+    this.app.post('/cc-sessions/api-mode', async (req, res) => {
+      try {
+        const enabled = Boolean(req.body?.enabled);
+        const configPath = pathJoin(process.cwd(), 'sessions', 'sessions-config.json');
+        const data = JSON.parse(await fsPromises.readFile(configPath, 'utf-8'));
+        data.api_mode = enabled;
+        await fsPromises.writeFile(configPath, JSON.stringify(data, null, 2));
+        res.json({ ok: true, api_mode: enabled });
+      } catch (error) {
+        res.status(500).json({ error: 'write_failed' });
+      }
+    });
+
+    // Create markdown task and set current
+    this.app.post('/cc-sessions/create-task', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });
+        const { name, description, branch, services } = req.body || {};
+        if (!name) return res.status(400).json({ error: 'name_required' });
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        const path = await ccs.createMarkdownTaskFile(name, description);
+        // Enforce branch rule via setCurrentTask (does not auto-checkout)
+        await ccs.setCurrentTask(name, branch || 'feature/' + name, Array.isArray(services) ? services : []);
+        res.json({ ok: true, file: path });
+      } catch (error) {
+        logger.error('cc-sessions create-task error', { error });
+        res.status(500).json({ error: 'create_task_failed' });
+      }
+    });
+
     this.app.get('/cc-sessions/statusline', async (req, res) => {
       try {
         if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });

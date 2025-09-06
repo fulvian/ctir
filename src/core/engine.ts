@@ -57,6 +57,19 @@ export class CTIRCore {
     this.proxy.start();
     this.proxy.setCTIRCore(this);
 
+    // Ensure cc-sessions project bootstrap (config + structure)
+    try {
+      await this.ccs.bootstrapProjectIfNeeded();
+      // Fire session-start hook with basic context
+      await this.ccs.onSessionStart({
+        workspace: { current_dir: process.cwd() },
+        model: { display_name: 'Claude Sonnet 4' },
+        session_id: 'ctir-session'
+      });
+    } catch (e) {
+      logger.warn('cc-sessions bootstrap failed', { error: e instanceof Error ? e.message : String(e) });
+    }
+
     // Start modern session management (replaces old monitoring)
     await this.modernSessionManager.start();
 
