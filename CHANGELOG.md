@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Step-by-step instructions to force CTIR proxy and keep `ANTHROPIC_API_KEY` unset in the CLI shell
 - Automatic environment management in launcher
   - `start-ctir-claude.sh` now auto-loads `.env`, pulls missing secrets from macOS Keychain, and interactively prompts when needed
+- cc-sessions REST API endpoints exposed by CTIR Proxy
+  - `GET /cc-sessions/health`, `GET /cc-sessions/daic-mode`, `POST /cc-sessions/toggle-daic`
+  - `POST /cc-sessions/set-task`, `GET /cc-sessions/statusline?format=simple|full`, `POST /cc-sessions/block-tool`
+- Comprehensive User & Developer Guide
+  - `docs/ctir-user-dev-guide.md` covering setup, launchers, routing, cc-sessions, APIs, troubleshooting, and development
 - **Dynamic Routing System**: Intelligent routing based on Claude session status
   - **ClaudeSessionMonitor**: Automatic detection of Claude session limits and availability
   - **OpenRouter Integration**: Seamless fallback to OpenRouter when Claude unavailable
@@ -200,6 +205,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UPDATED**: Prometheus metrics to reflect OpenRouter circuit breaker status
 - **UPDATED**: CTIRStatus interface to include modern session management fields
 - **UPDATED**: Core engine to use ModernSessionManager instead of old monitoring
+- **UPDATED**: CTIR Proxy to expose cc-sessions management endpoints and improved diagnostics
 
 ### Fixed
 - **PERFORMANCE**: Replaced problematic Ollama TypeScript library with direct REST API calls
