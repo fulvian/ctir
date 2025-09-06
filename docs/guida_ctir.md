@@ -265,6 +265,28 @@ Esempio di configurazione MCP client (VS Code / Cursor):
 }
 ```
 
+### 4.3 Forzare l'uso del Proxy CTIR con Claude Code/CLI
+
+Se vedi ancora il messaggio di limite ("5-hour limit reached") e vuoi che le richieste passino da CTIR (che effettua il fallback su OpenRouter quando necessario), imposta l'endpoint base dell'SDK/CLI Anthropic verso il proxy locale:
+
+```bash
+# Imposta l'endpoint del proxy CTIR per l'SDK/CLI
+export ANTHROPIC_BASE_URL="http://localhost:3001"
+# Mantieni anche per compatibilità (alcuni client storici lo leggono)
+export ANTHROPIC_API_URL="http://localhost:3001"
+
+# Evita conflitti: non usare una API key diretta nell'ambiente della CLI
+unset ANTHROPIC_API_KEY
+
+# Avvia la CLI
+claude
+```
+
+Note importanti:
+- CTIR necessita comunque della chiave reale per contattare Claude quando disponibile: configura `CLAUDE_API_KEY` nel file `.env` del server CTIR (non nella shell della CLI).
+- Il server CTIR rileva automaticamente i limiti di sessione e instrada su OpenRouter quando opportuno.
+
+
 Una volta attivo, il client MCP elencherà gli strumenti:
 - `analyze_error`
 - `generate_unit_tests`

@@ -116,6 +116,28 @@ If you see "🎭 CTIR: Error":
 
 ## Advanced Integration
 
+## Claude Proxy Setup
+
+To force Claude Code/CLI to use the CTIR proxy when Claude is limited:
+
+```bash
+# Point Anthropic SDK/CLI to CTIR
+export ANTHROPIC_BASE_URL="http://localhost:3001"
+# Kept for compatibility with some clients
+export ANTHROPIC_API_URL="http://localhost:3001"
+
+# Ensure the CLI does not bypass via a direct key
+unset ANTHROPIC_API_KEY
+
+# Launch Claude
+claude
+```
+
+Notes:
+- The official Anthropic SDK and many CLIs look for `ANTHROPIC_BASE_URL`.
+- CTIR still needs the real Anthropic key to contact Claude when available. Set `CLAUDE_API_KEY` in your `.env` for the CTIR server (not in the shell where you run `claude`).
+
+
 ### Custom Status Line
 Create your own status line with CTIR:
 

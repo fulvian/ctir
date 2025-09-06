@@ -2,9 +2,12 @@ import { loadEnvConfig } from "@/utils/config";
 import { logger } from "@/utils/logger";
 import { CTIRCore } from "@/core/engine";
 import { setupMetricsServer } from "@/utils/metrics";
+import { hydrateSecretsFromOS } from "@/utils/secrets";
 
 async function main() {
+  // Load .env, then hydrate any missing secrets from OS keychain (macOS)
   loadEnvConfig();
+  hydrateSecretsFromOS();
   logger.info("Starting CTIR...");
   const core = new CTIRCore();
   await core.start();
@@ -21,4 +24,3 @@ main().catch((err) => {
   console.error("CTIR failed to start", err);
   process.exit(1);
 });
-
