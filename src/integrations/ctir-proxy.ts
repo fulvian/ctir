@@ -94,6 +94,93 @@ export class CTIRProxy {
       }
     });
 
+    // --- cc-sessions endpoints ---
+    this.app.get('/cc-sessions/health', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ ok: false, error: 'CTIR Core not initialized' });
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        const ok = await ccs.healthCheck();
+        res.json({ ok });
+      } catch (error) {
+        logger.error('cc-sessions health error', { error });
+        res.status(500).json({ ok: false, error: 'health_check_failed' });
+      }
+    });
+
+    this.app.get('/cc-sessions/daic-mode', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        const mode = await ccs.getDAICMode();
+        res.json({ mode });
+      } catch (error) {
+        logger.error('cc-sessions get daic error', { error });
+        res.status(500).json({ error: 'get_daic_failed' });
+      }
+    });
+
+    this.app.post('/cc-sessions/toggle-daic', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        const mode = await ccs.toggleDAICMode();
+        res.json({ mode });
+      } catch (error) {
+        logger.error('cc-sessions toggle daic error', { error });
+        res.status(500).json({ error: 'toggle_daic_failed' });
+      }
+    });
+
+    this.app.post('/cc-sessions/set-task', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });
+        const { task, branch, services } = req.body || {};
+        if (!task || !branch) return res.status(400).json({ error: 'task_and_branch_required' });
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        await ccs.setCurrentTask(task, branch, Array.isArray(services) ? services : []);
+        res.json({ ok: true });
+      } catch (error) {
+        logger.error('cc-sessions set task error', { error });
+        res.status(500).json({ ok: false, error: 'set_task_failed' });
+      }
+    });
+
+    this.app.get('/cc-sessions/statusline', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });
+        const format = String(req.query.format || 'full');
+        const context = {
+          workspace: { current_dir: process.cwd() },
+          model: { display_name: 'Claude Sonnet 4' },
+          session_id: 'ctir-session'
+        };
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        const full = await ccs.generateStatusline(context);
+        if (format === 'simple') {
+          const simple = ccs.getStatusline().formatSimpleStatusline(await ccs.getStatusline().generateStatusline(context));
+          return res.json({ statusline: simple });
+        }
+        res.json({ statusline: full });
+      } catch (error) {
+        logger.error('cc-sessions statusline error', { error });
+        res.status(500).json({ error: 'statusline_failed' });
+      }
+    });
+
+    this.app.post('/cc-sessions/block-tool', async (req, res) => {
+      try {
+        if (!this.ctirCore) return res.status(503).json({ error: 'CTIR Core not initialized' });
+        const { toolName, toolInput } = req.body || {};
+        if (!toolName) return res.status(400).json({ error: 'toolName_required' });
+        const ccs = this.ctirCore.getCCSessionsIntegration();
+        const result = await ccs.shouldBlockTool(toolName, toolInput);
+        res.json(result);
+      } catch (error) {
+        logger.error('cc-sessions block-tool error', { error });
+        res.status(500).json({ error: 'block_tool_failed' });
+      }
+    });
+
     // Route analysis endpoint
     this.app.post('/analyze-task', async (req, res) => {
       try {

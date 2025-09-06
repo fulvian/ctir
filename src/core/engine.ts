@@ -4,6 +4,8 @@ import { WorkStatePersistence, SessionTimingTracker, AutoResumeEngine } from "@/
 import { ClaudeCodeMonitor } from "@/core/claude-monitor";
 import { ModernSessionManager } from "@/core/modern-session-manager";
 import { ModelIndicator } from "@/core/model-indicator";
+import { ClaudeSessionMonitor, OpenRouterConfig } from "@/core/claude-session-monitor";
+import { MCPModelServiceManager } from "@/core/mcp-model-service";
 import { loadConfig } from "@/utils/config";
 import { logger } from "@/utils/logger";
 import { MCPIntegration } from "@/integrations/mcp";
@@ -31,6 +33,11 @@ export class CTIRCore {
   private ccs = new CCSessionsIntegration();
   private ccrState = new FileCCRAdapter();
   private proxy = new CTIRProxy();
+  
+  // Nuovo sistema di routing dinamico
+  private sessionMonitor: ClaudeSessionMonitor;
+  private mcpServiceManager: MCPModelServiceManager;
+  
   private mcpAvailable = false;
   private ccrAvailable = false;
   private dbOk = false;
@@ -42,6 +49,9 @@ export class CTIRCore {
     const cfg = loadConfig();
     logger.info(`CTIR v${cfg.ctir.version} [${cfg.ctir.mode}] starting...`);
     await this.timing.trackSessionStart(new Date());
+
+    // Inizializza il sistema di routing dinamico
+    await this.initializeDynamicRouting();
 
     // Start CTIR Proxy for intelligent routing
     this.proxy.start();
@@ -191,6 +201,74 @@ export class CTIRCore {
 
   public getFormattedModelIndicator(): string {
     return this.modelIndicator.getFormattedIndicator();
+  }
+
+  // cc-sessions integration accessor
+  public getCCSessionsIntegration(): CCSessionsIntegration {
+    return this.ccs;
+  }
+
+  /**
+   * Inizializza il sistema di routing dinamico
+   */
+  private async initializeDynamicRouting(): Promise<void> {
+    try {
+      // Configurazione OpenRouter
+      const openRouterConfig: OpenRouterConfig = {
+        apiKey: process.env.OPEN_ROUTER_API_KEY || "",
+        baseURL: "https://openrouter.ai/api/v1",
+        models: {
+          default: "anthropic/claude-3.5-sonnet",
+          longContext: "anthropic/claude-3.5-sonnet",
+          background: "meta-llama/llama-3.1-8b-instruct"
+        }
+      };
+
+      // Inizializza il monitor della sessione Claude
+      this.sessionMonitor = new ClaudeSessionMonitor(
+        openRouterConfig,
+        process.env.CLAUDE_API_KEY
+      );
+
+      // Inizializza il manager dei servizi MCP
+      this.mcpServiceManager = new MCPModelServiceManager(
+        openRouterConfig,
+        process.env.CLAUDE_API_KEY
+      );
+
+      // Verifica lo stato iniziale della sessione Claude
+      const sessionStatus = await this.sessionMonitor.checkClaudeSessionStatus();
+      logger.info("Claude session status initialized", { sessionStatus });
+
+      // Aggiorna la configurazione del router se necessario
+      await this.sessionMonitor.updateRouterConfigIfNeeded();
+
+      logger.info("Dynamic routing system initialized successfully");
+    } catch (error) {
+      logger.error("Failed to initialize dynamic routing system", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Ottiene lo stato della sessione Claude
+   */
+  async getClaudeSessionStatus() {
+    return await this.sessionMonitor.checkClaudeSessionStatus();
+  }
+
+  /**
+   * Ottiene le statistiche dei servizi MCP
+   */
+  getMCPServiceStats() {
+    return this.mcpServiceManager.getServiceStats();
+  }
+
+  /**
+   * Esegue una richiesta usando il sistema MCP
+   */
+  async executeMCPRequest(request: any, context?: any) {
+    return await this.mcpServiceManager.executeRequest(request, context);
   }
   // --- END: Getters for Dependency Injection ---
 }
