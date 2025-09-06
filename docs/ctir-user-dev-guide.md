@@ -45,21 +45,28 @@ Installa i hook Python, lo script `daic`, la statusline e i file di stato in `.c
 
 ## 4) Avvio e utilizzo (Utenti)
 
-### 4.1 Avvio consigliato (Claude con proxy CTIR)
+### 4.1 Avvio consigliato (footer cc-sessions persistente)
+Requisito: `tmux` installato (macOS: `brew install tmux`).
+```bash
+./start-ctir-claude-footer.sh
+```
+- Crea una sessione unica con due pane:
+  - Pane superiore: Claude CLI (instradato su CTIR, nessuna API key in shell)
+  - Pane inferiore: statusline cc-sessions + footer CTIR
+
+### 4.2 Avvio senza footer (solo CLI)
 ```bash
 ./start-ctir-claude.sh
 ```
-- Avvia CTIR in background (porta `3001`), testa il proxy, configura la shell di Claude:
-  - `ANTHROPIC_BASE_URL=http://localhost:3001`
-  - `unset ANTHROPIC_API_KEY` (evita bypass diretto dell’API Anthropic)
+- Avvia CTIR e Claude senza pannello footer persistente.
 
-### 4.2 Solo OpenRouter (nessuna chiave Anthropic)
+### 4.3 Solo OpenRouter (nessuna chiave Anthropic)
 ```bash
 ./start-claude-ctir-only.sh
 ```
 - Usa CTIR come backend unico: tutte le richieste vanno su OpenRouter.
 
-### 4.3 Avvio rapido
+### 4.4 Avvio rapido
 ```bash
 ./quick-start.sh
 ```
@@ -161,4 +168,3 @@ npm run db:setup
 ---
 
 CTIR fornisce un’esperienza “plug-and-play” per Claude Code: quando Claude è limitato, il lavoro prosegue su OpenRouter in modo trasparente; cc-sessions aggiunge disciplina e visibilità al flusso di lavoro. Per dubbi o contributi, apri una issue/PR sul repository.
-

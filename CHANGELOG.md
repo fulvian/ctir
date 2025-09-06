@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `POST /cc-sessions/set-task`, `GET /cc-sessions/statusline?format=simple|full`, `POST /cc-sessions/block-tool`
 - Comprehensive User & Developer Guide
   - `docs/ctir-user-dev-guide.md` covering setup, launchers, routing, cc-sessions, APIs, troubleshooting, and development
+- Tmux launcher (recommended): `start-ctir-claude-footer.sh` creates a single tmux window with two panes (top: Claude, bottom: cc-sessions statusline + CTIR footer)
 - **Dynamic Routing System**: Intelligent routing based on Claude session status
   - **ClaudeSessionMonitor**: Automatic detection of Claude session limits and availability
   - **OpenRouter Integration**: Seamless fallback to OpenRouter when Claude unavailable
@@ -73,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resolved CLI crash on fallback responses and improved routing logs
 - macOS bash compatibility in launcher
   - Removed unsupported `${var,,}` lowercasing syntax; placeholder detection uses a portable pattern
+- `start-ctir-claude.sh` no longer sets `ANTHROPIC_API_KEY`; only unsets it to avoid CLI auth conflicts. Removed interactive cleanup to avoid shell-compat issues.
 - **Script Syntax Error**: Fixed bash syntax error in start-ctir-claude.sh line 277
   - Corrected read command syntax for better bash compatibility
   - Improved error handling in cleanup section

@@ -149,6 +149,66 @@ fi
 
 log_success "Configurazione verificata"
 
+# Step 4.5: Caricamento automatico variabili ambiente (.env + Keychain)
+log_step "Gestione automatica variabili ambiente..."
+
+# Esporta tutte le variabili definite in .env (senza stampare segreti)
+set -a
+source ./.env 2>/dev/null || true
+set +a
+
+# Helper: leggi segreto dal Keychain (solo macOS)
+read_keychain_secret() {
+  local service="$1"; local account="$2";
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    security find-generic-password -s "$service" -a "$account" -w 2>/dev/null || true
+  fi
+}
+
+# Helper: imposta variabile se mancante (ordine: env/.env già caricata -> Keychain -> prompt)
+ensure_secret_var() {
+  local var_name="$1"; local service="$2"; local description="$3"; local current_val
+  current_val="${!var_name}"
+  # Consideriamo placeholder valori del tipo your_*_here (case-insensitive non necessario qui)
+  if [[ -n "$current_val" ]] && [[ ! "$current_val" == your_*_here ]]; then
+    log_success "$var_name già impostata (da .env o ambiente)"
+    return 0
+  fi
+
+  # Prova Keychain (macOS)
+  local kc_val
+  kc_val=$(read_keychain_secret "$service" "$USER")
+  if [[ -n "$kc_val" ]]; then
+    export "$var_name"="$kc_val"
+    log_success "$var_name caricata dal Keychain"
+    return 0
+  fi
+
+  # Prompt interattivo
+  echo -n "Inserisci $description (lascia vuoto per saltare): "
+  read -r secret_val
+  if [[ -n "$secret_val" ]]; then
+    export "$var_name"="$secret_val"
+    # Offri salvataggio in Keychain
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      echo -n "Salvare in Keychain per usi futuri? (y/N): "
+      read -n 1 -r reply; echo
+      if [[ $reply =~ ^[Yy]$ ]]; then
+        security add-generic-password -a "$USER" -s "$service" -w "$secret_val" -U >/dev/null 2>&1 || true
+        log_success "$var_name salvata in Keychain"
+      fi
+    fi
+  else
+    log_warning "$var_name non impostata; alcune funzioni potrebbero non essere disponibili"
+  fi
+}
+
+# Imposta chiavi richieste per il server CTIR
+ensure_secret_var "OPEN_ROUTER_API_KEY" "CTIR_OPEN_ROUTER_API_KEY" "OpenRouter OPEN_ROUTER_API_KEY"
+ensure_secret_var "CLAUDE_API_KEY" "CTIR_CLAUDE_API_KEY" "Anthropic CLAUDE_API_KEY"
+
+log_success "Variabili ambiente per CTIR pronte (senza stampa dei valori)"
+
 # Step 5: Avvio CTIR
 log_step "Avvio CTIR..."
 
@@ -208,12 +268,10 @@ log_step "Configurazione Claude Code..."
 # Nota: il CLI/SDK ufficiale usa ANTHROPIC_BASE_URL; manteniamo anche ANTHROPIC_API_URL per compatibilità
 export ANTHROPIC_BASE_URL="http://localhost:3001"
 export ANTHROPIC_API_URL="http://localhost:3001"
-export ANTHROPIC_API_KEY="ctir-proxy-token"
 
 log_success "Variabili d'ambiente configurate:"
 echo "  - ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL"
 echo "  - ANTHROPIC_API_URL: $ANTHROPIC_API_URL"
-echo "  - ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY"
 
 # Step 8: Verifica Claude Code CLI
 log_step "Verifica Claude Code CLI..."
@@ -280,16 +338,4 @@ log_success "Sistema pronto! Avvio Claude Code..."
 claude
 
 # Cleanup quando Claude Code si chiude
-log_info "Claude Code chiuso. Pulizia..."
-
-# Opzionale: termina CTIR quando Claude Code si chiude
-echo -n "Vuoi terminare anche CTIR? (y/N): "
-read -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    log_info "Terminazione CTIR..."
-    pkill -f "tsx.*src/index.ts" 2>/dev/null || true
-    log_success "CTIR terminato"
-fi
-
-log_success "Script completato"
+log_info "Claude Code chiuso. Script terminato."

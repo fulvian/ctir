@@ -44,17 +44,26 @@ File di riferimento principali:
 
 ---
 
-**Installazione Rapida**
+**Installazione Rapida (Consigliata)**
 - Clona il repository e posizionati nella cartella.
 - Crea l’ambiente e builda:
-  - `cp .env.example .env` e personalizza valori chiave
+  - `cp .env.example .env` e imposta almeno `OPEN_ROUTER_API_KEY`
   - `npm install`
   - `npm run build && npm run db:setup`
-- Inizializza submodules e dipendenze:
-  - `npm run submodules:install`
-- Prepara i modelli locali (Ollama):
-  - `bash local-development/scripts/setup-models.sh`
-  - Oppure: `ollama pull qwen2.5-coder:7b`
+- Inizializza submodules:
+  - `git submodule update --init --recursive` (oppure `npm run submodules:install`)
+- Setup cc-sessions (hook/statusline):
+  - `bash local-development/scripts/setup-cc-sessions.sh`
+
+Avvio con footer cc-sessions (raccomandato):
+- Requisito: `tmux` installato (macOS: `brew install tmux`)
+- Comando unico: `./start-ctir-claude-footer.sh`
+  - Pane superiore: Claude CLI instradato via CTIR (nessuna API key in shell)
+  - Pane inferiore: statusline cc-sessions + footer CTIR aggiornati ogni 5s
+
+Alternative (opzionali):
+- `./start-ctir-claude.sh` — avvio senza pannello footer persistente
+- `./start-claude-ctir-only.sh` — forza SOLO OpenRouter (nessuna chiave Anthropic)
 
 Avvio in sviluppo:
 - CTIR: `npm run dev`
