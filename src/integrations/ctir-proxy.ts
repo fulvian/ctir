@@ -7,6 +7,7 @@ import { CTIRSession } from '@/models/session';
 import { logger } from '@/utils/logger';
 import type { CTIRCore } from '@/core/engine';
 import { ClaudeSessionMonitor, OpenRouterConfig } from '@/core/claude-session-monitor';
+import { CCSessionsHooksManager } from '@/integrations/cc-sessions-hooks';
 
 export class CTIRProxy {
   private app = express();
@@ -16,6 +17,7 @@ export class CTIRProxy {
   private ctirCore?: CTIRCore;
   private sessionMonitor?: ClaudeSessionMonitor;
   private transcriptDir = pathJoin(process.cwd(), '.claude', 'transcripts');
+  private ccsHooks = new CCSessionsHooksManager(process.cwd());
 
   constructor() {
     this.setupMiddleware();
@@ -363,6 +365,21 @@ export class CTIRProxy {
     }
     
     return 'Unknown task';
+  }
+
+  private extractLastUserText(messages: any[]): string | null {
+    if (!Array.isArray(messages)) return null;
+    const reversed = [...messages].reverse();
+    for (const m of reversed) {
+      if (m?.role === 'user') {
+        if (typeof m.content === 'string') return m.content;
+        if (Array.isArray(m.content)) {
+          const t = m.content.find((c: any) => c.type === 'text');
+          if (t?.text) return String(t.text);
+        }
+      }
+    }
+    return null;
   }
 
   private estimateTokens(messages: any[]): number {
@@ -719,6 +736,23 @@ interface TranscriptEntry {
   message?: { usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } };
 }
 
+        // cc-sessions: enrich with additional context from user message hook
+        try {
+          const lastUser = this.extractLastUserText(messages);
+          if (lastUser) {
+            const day = new Date().toISOString().slice(0,10);
+            const transcriptPath = pathJoin(this.transcriptDir, `ctir-${day}.jsonl`);
+            const extra = await this.ccsHooks.runUserMessageHook(lastUser, transcriptPath);
+            if (extra && extra.trim().length > 0) {
+              req.body.messages = [
+                { role: 'system', content: extra },
+                ...(Array.isArray(req.body.messages) ? req.body.messages : [])
+              ];
+            }
+          }
+        } catch (e) {
+          logger.warn('cc-sessions user-message hook failed', { error: e instanceof Error ? e.message : String(e) });
+        }
 CTIRProxy.prototype['appendTranscript'] = async function(entry: TranscriptEntry) {
   try {
     // Ensure dir exists
