@@ -75,28 +75,38 @@ launch_claude_with_footer() {
     exit 1
   fi
 
-  if ! command -v tmux >/dev/null 2>&1; then
-    err "tmux non trovato. Installa tmux (es. brew install tmux) per il footer permanente."
-    exit 1
+  local PROJECT_DIR="$PWD"
+
+  if command -v tmux >/dev/null 2>&1; then
+    # Prova via tmux (pane inferiore dedicato)
+    tmux has-session -t ctir_footer 2>/dev/null && tmux kill-session -t ctir_footer 2>/dev/null || true
+    if tmux new-session -d -s ctir_footer bash -lc 'export ANTHROPIC_BASE_URL="http://localhost:3001"; export ANTHROPIC_API_URL="http://localhost:3001"; unset ANTHROPIC_API_KEY; claude'; then
+      tmux split-window -v -p 20 -t ctir_footer:0 bash -lc "cd '$PROJECT_DIR'; while true; do clear; ctx='{\"workspace\":{\"current_dir\":\"'$PROJECT_DIR'\"},\"model\":{\"display_name\":\"Claude Sonnet 4\"},\"session_id\":\"ctir-session\"}'; echo \"$ctx\" | bash .claude/hooks/statusline-script.sh 2>/dev/null || echo '(statusline non disponibile)'; sleep 5; done"
+      tmux attach -t ctir_footer
+      return
+    else
+      warn "tmux non ha potuto creare la sessione (TTY non disponibile). Provo fallback macOS Terminal..."
+    fi
+  else
+    warn "tmux non trovato. Provo fallback macOS Terminal..."
   fi
 
-  # Chiudi eventuale sessione esistente
-  tmux has-session -t ctir_footer 2>/dev/null && tmux kill-session -t ctir_footer 2>/dev/null || true
+  # Fallback macOS: apri nuova finestra Terminal per il footer
+  if command -v osascript >/dev/null 2>&1; then
+    osascript <<OSA >/dev/null 2>&1 || true
+tell application "Terminal"
+  do script "cd '$PROJECT_DIR'; while true; do clear; ctx='{\"workspace\":{\"current_dir\":\"'$PROJECT_DIR'\"},\"model\":{\"display_name\":\"Claude Sonnet 4\"},\"session_id\":\"ctir-session\"}'; echo \"\$ctx\" | bash .claude/hooks/statusline-script.sh 2>/dev/null || echo '(statusline non disponibile)'; sleep 5; done"
+  activate
+end tell
+OSA
+    ok "Footer avviato in nuova finestra Terminal"
+    # Avvia Claude nella finestra corrente
+    claude
+    return
+  fi
 
-  # Crea sessione con pane principale per Claude
-  tmux new-session -d -s ctir_footer bash -lc 'export ANTHROPIC_BASE_URL="http://localhost:3001"; export ANTHROPIC_API_URL="http://localhost:3001"; unset ANTHROPIC_API_KEY; claude'
-
-  # Crea pane inferiore (20% altezza) per footer cc-sessions
-  tmux split-window -v -p 20 -t ctir_footer:0 bash -lc '
-    while true; do 
-      clear; 
-      ctx="{\"workspace\":{\"current_dir\":\"$PWD\"},\"model\":{\"display_name\":\"Claude Sonnet 4\"},\"session_id\":\"ctir-session\"}"; 
-      echo "$ctx" | bash .claude/hooks/statusline-script.sh 2>/dev/null || echo "(statusline non disponibile)"; 
-      sleep 5; 
-    done'
-
-  # Attacca alla sessione
-  tmux attach -t ctir_footer
+  err "Impossibile creare un footer persistente (manca tmux e osascript). Avvia Claude senza footer."
+  claude
 }
 
 main() {
