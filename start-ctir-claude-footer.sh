@@ -69,56 +69,34 @@ ensure_env() {
   ok "Ambiente CLI configurato (proxy CTIR)"
 }
 
-render_footer_once() {
-  # Ottiene 2 righe statusline dallo script cc-sessions
-  local ctx
-  ctx='{"workspace":{"current_dir":"'"$PWD"'"},"model":{"display_name":"Claude Sonnet 4"},"session_id":"ctir-session"}'
-  local out
-  out=$(echo "$ctx" | bash .claude/hooks/statusline-script.sh 2>/dev/null || true)
-  local line1 line2
-  line1=$(echo "$out" | sed -n '1p')
-  line2=$(echo "$out" | sed -n '2p')
-
-  # Stampa nelle ultime 2 righe del terminale
-  local rows
-  rows=$(tput lines 2>/dev/null || echo 24)
-  tput sc 2>/dev/null || true
-  tput civis 2>/dev/null || true
-  tput cup $((rows-2)) 0 2>/dev/null || true
-  printf "%s\033[K\n" "${line1}"
-  tput cup $((rows-1)) 0 2>/dev/null || true
-  printf "%s\033[K" "${line2}"
-  tput rc 2>/dev/null || true
-}
-
-footer_loop() {
-  while kill -0 "$1" >/dev/null 2>&1; do
-    render_footer_once
-    sleep 5
-  done
-  # Cleanup footer (ripristina cursore)
-  tput cnorm 2>/dev/null || true
-}
-
 launch_claude_with_footer() {
   if ! command -v claude >/dev/null 2>&1; then
     err "Claude Code CLI non trovato (npm i -g @anthropic-ai/claude)"
     exit 1
   fi
-  ok "Avvio Claude Code..."
-  claude &
-  CLAUDE_PID=$!
-  # Avvia il loop footer legato al PID di Claude
-  footer_loop "$CLAUDE_PID" &
-  FOOTER_PID=$!
 
-  # Pulizia su Ctrl+C o uscita
-  trap 'kill "$FOOTER_PID" 2>/dev/null || true; tput cnorm 2>/dev/null || true; exit 0' INT TERM
+  if ! command -v tmux >/dev/null 2>&1; then
+    err "tmux non trovato. Installa tmux (es. brew install tmux) per il footer permanente."
+    exit 1
+  fi
 
-  # Attendi Claude
-  wait "$CLAUDE_PID" || true
-  kill "$FOOTER_PID" 2>/dev/null || true
-  tput cnorm 2>/dev/null || true
+  # Chiudi eventuale sessione esistente
+  tmux has-session -t ctir_footer 2>/dev/null && tmux kill-session -t ctir_footer 2>/dev/null || true
+
+  # Crea sessione con pane principale per Claude
+  tmux new-session -d -s ctir_footer bash -lc 'export ANTHROPIC_BASE_URL="http://localhost:3001"; export ANTHROPIC_API_URL="http://localhost:3001"; unset ANTHROPIC_API_KEY; claude'
+
+  # Crea pane inferiore (20% altezza) per footer cc-sessions
+  tmux split-window -v -p 20 -t ctir_footer:0 bash -lc '
+    while true; do 
+      clear; 
+      ctx="{\"workspace\":{\"current_dir\":\"$PWD\"},\"model\":{\"display_name\":\"Claude Sonnet 4\"},\"session_id\":\"ctir-session\"}"; 
+      echo "$ctx" | bash .claude/hooks/statusline-script.sh 2>/dev/null || echo "(statusline non disponibile)"; 
+      sleep 5; 
+    done'
+
+  # Attacca alla sessione
+  tmux attach -t ctir_footer
 }
 
 main() {
@@ -134,4 +112,3 @@ main() {
 }
 
 main "$@"
-
