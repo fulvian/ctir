@@ -110,6 +110,10 @@ launch_claude_with_footer() {
       sleep 5; \
     done"
 
+  # Abilita mouse (click per cambiare pane) e seleziona automaticamente il pane superiore (Claude)
+  tmux set-option -t ctir_footer mouse on 2>/dev/null || true
+  tmux select-pane -U -t ctir_footer:0 2>/dev/null || true
+
   # Attacca alla sessione
   tmux attach -t ctir_footer
 }
