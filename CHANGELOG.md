@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- macOS Keychain secrets hydration for missing env keys
+  - `src/utils/secrets.ts` reads `CTIR_CLAUDE_API_KEY` and `CTIR_OPEN_ROUTER_API_KEY` from Keychain on macOS
+  - Bootstrap wired in `src/index.ts` via `hydrateSecretsFromOS()`
+  - Helper script `scripts/setup-keys-macos.sh` to store keys and optionally mirror into `.env`
+- Proxy diagnostics
+  - Extra debug log on `/v1/messages` to trace headers and client
+- Documentation updates for proxy usage
+  - Clarified that Anthropic SDK/CLI honors `ANTHROPIC_BASE_URL`
+  - Step-by-step instructions to force CTIR proxy and keep `ANTHROPIC_API_KEY` unset in the CLI shell
+- Automatic environment management in launcher
+  - `start-ctir-claude.sh` now auto-loads `.env`, pulls missing secrets from macOS Keychain, and interactively prompts when needed
+- **Dynamic Routing System**: Intelligent routing based on Claude session status
+  - **ClaudeSessionMonitor**: Automatic detection of Claude session limits and availability
+  - **OpenRouter Integration**: Seamless fallback to OpenRouter when Claude unavailable
+  - **MCP Model Services**: External models managed as MCP services
+  - **CTIRCustomRouter**: Advanced routing logic for Claude Code Router
+  - **Smart Model Selection**: Task-based model selection (coding, analysis, debugging, planning)
+  - **Automatic Configuration Updates**: Dynamic router configuration updates based on session status
+- **CC-Sessions Complete Integration**: Full integration of cc-sessions framework into CTIR system
+  - **Hooks Manager**: Complete Python hooks integration for DAIC enforcement and tool blocking
+  - **Statusline Integration**: Real-time statusline generation with context usage, task info, and DAIC mode
+  - **DAIC Enforcement**: Discussion/Implementation mode enforcement with automatic tool blocking
+  - **Branch Enforcement**: Git branch validation for task-based development workflow
+  - **Task Management**: Enhanced task management with cc-sessions metadata and state persistence
+  - **Setup Script**: `npm run setup:cc-sessions` for automated installation and configuration
+  - **Test Suite**: Comprehensive integration tests for all cc-sessions functionality
+  - **Configuration**: Flexible configuration system for trigger phrases, blocked tools, and branch rules
 - **Model Indicator System**: Real-time footer indicator showing which LLM model is currently working
   - **ModelIndicator**: Core class for tracking and displaying current model status
   - **API Endpoint**: `/model-indicator` endpoint exposing real-time model information
@@ -28,8 +55,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Startup Automation**: `start-ctir-claude.sh` for one-command system startup
   - **Verified Working**: Successfully tested and confirmed working in Claude Code terminal
 
+### Fixed
+- CTIR Proxy OpenRouter response shape now matches Anthropic Messages schema
+  - Content returned as array of blocks (`[{ type: 'text', text: '...' }]`) to prevent CLI error `A.map is not a function`
+  - Added default `anthropic-version` when missing
+- Proxy Claude API key resolution improved
+  - Falls back to `CLAUDE_API_KEY` (from `.env`/Keychain) when `Authorization` header and `ANTHROPIC_API_KEY` are not present
+- Launcher scripts enforce proxy correctly for Claude CLI
+  - Use `ANTHROPIC_BASE_URL=http://localhost:3001` (and keep `ANTHROPIC_API_URL` for compatibility)
+  - Updated: `start-ctir-claude.sh`, `start-claude-ctir.sh`, `start-claude-ctir-only.sh`, `start-ctir-final.sh`, `start-ctir-proxy-only.sh`, `start-ctir-simple.sh`, `quick-start.sh`, `setup-claude-ctir.sh`, `claude-logout.sh`, `claude-clean-token.sh`
+- Start script and proxy stability improvements
+  - Resolved CLI crash on fallback responses and improved routing logs
+- macOS bash compatibility in launcher
+  - Removed unsupported `${var,,}` lowercasing syntax; placeholder detection uses a portable pattern
+- **Script Syntax Error**: Fixed bash syntax error in start-ctir-claude.sh line 277
+  - Corrected read command syntax for better bash compatibility
+  - Improved error handling in cleanup section
+
+### Known Issues
+- None currently tracked for proxy routing. If Claude CLI still bypasses CTIR,
+  verify `ANTHROPIC_BASE_URL` is set in the CLI shell and that `ANTHROPIC_API_KEY` is unset there.
+
 ### Files Added
+- `src/core/claude-session-monitor.ts` - ClaudeSessionMonitor for session status detection
+- `src/core/ctir-custom-router.ts` - CTIRCustomRouter for intelligent routing logic
+- `src/core/mcp-model-service.ts` - MCPModelServiceManager for external model services
 - `src/core/model-indicator.ts` - Core ModelIndicator class for real-time model tracking
+
+### Files Modified
+- `src/core/engine.ts` - Integrated dynamic routing system with ClaudeSessionMonitor and MCPModelServiceManager
+- `src/integrations/ctir-proxy.ts` - Enhanced proxy with dynamic routing and OpenRouter direct routing
+- `config.json` - Added OpenRouter configuration and dynamic routing settings
+- `env.example` - Added dynamic routing environment variables
+- `start-ctir-claude.sh` - Fixed bash syntax error in cleanup section
 - `scripts/claude-code-ctir-indicator.sh` - Main integration script with multiple display formats
 - `scripts/ctir-model-indicator.sh` - Advanced indicator script with caching and monitoring
 - `scripts/ctir-footer-hook.py` - Python hook for Claude Code integration
